@@ -2,97 +2,10 @@
 
 pragma solidity 0.8.11;
 
-interface IERC20 {
-    function transfer(address recipient, uint256 amount)
-        external
-        returns (bool);
-
-    function transferFrom(
-        address sender,
-        address recipient,
-        uint256 amount
-    ) external returns (bool);
-}
-
-library Address {
-    function isContract(address account) internal view returns (bool) {
-        bytes32 codehash;
-
-            bytes32 accountHash
-         = 0xc5d2460186f7233c927e7db2dcc703c0e500b653ca82273b7bfad8045d85a470;
-        // solhint-disable-next-line no-inline-assembly
-        assembly {
-            codehash := extcodehash(account)
-        }
-        return (codehash != 0x0 && codehash != accountHash);
-    }
-}
-
-library SafeERC20 {
-    using Address for address;
-
-    function safeTransfer(
-        IERC20 token,
-        address to,
-        uint256 value
-    ) internal {
-        callOptionalReturn(
-            token,
-            abi.encodeWithSelector(token.transfer.selector, to, value)
-        );
-    }
-
-    function safeTransferFrom(
-        IERC20 token,
-        address from,
-        address to,
-        uint256 value
-    ) internal {
-        callOptionalReturn(
-            token,
-            abi.encodeWithSelector(token.transferFrom.selector, from, to, value)
-        );
-    }
-
-    function callOptionalReturn(IERC20 token, bytes memory data) private {
-        require(address(token).isContract(), "SafeERC20: call to non-contract");
-
-        // solhint-disable-next-line avoid-low-level-calls
-        (bool success, bytes memory returndata) = address(token).call(data);
-        require(success, "SafeERC20: low-level call failed");
-
-        if (returndata.length > 0) {
-            // Return data is optional
-            // solhint-disable-next-line max-line-length
-            require(
-                abi.decode(returndata, (bool)),
-                "SafeERC20: ERC20 operation did not succeed"
-            );
-        }
-    }
-}
-
-interface ve {
-    function balanceOfAtNFT(uint256 _tokenId, uint256 _block)
-        external
-        view
-        returns (uint256);
-
-    function balanceOfNFTAt(uint256 _tokenId, uint256 _t)
-        external
-        view
-        returns (uint256);
-
-    function totalSupplyAt(uint256 _block) external view returns (uint256);
-
-    function totalSupplyAtT(uint256 t) external view returns (uint256);
-
-    function ownerOf(uint256) external view returns (address);
-
-    function create_lock(uint256 _value, uint256 _lock_duration)
-        external
-        returns (uint256);
-}
+import './libraries/SafeERC20.sol';
+import './libraries/Address.sol';
+import './interfaces/IERC20.sol';
+import './interfaces/ve.sol';
 
 contract Reward {
     using SafeERC20 for IERC20;
@@ -130,12 +43,7 @@ contract Reward {
 
     event LogClaimReward(uint256 tokenId, uint256 reward);
     event LogAddEpoch(uint256 epochId, EpochInfo epochInfo);
-    event LogAddEpoch(
-        uint256 startTime,
-        uint256 epochLength,
-        uint256 epochCount,
-        uint256 startEpochId
-    );
+    event LogAddEpoch(uint256 startTime, uint256 epochLength, uint256 epochCount, uint256 startEpochId);
     event LogTransferAdmin(address pendingAdmin);
     event LogAcceptAdmin(address admin);
 
@@ -188,15 +96,26 @@ contract Reward {
         }
         // asserting point0.blk < point1.blk, point0.ts < point1.ts
         uint256 block_slope; // dblock/dt
-        block_slope =
-            (BlockMultiplier * (point1.blk - point0.blk)) /
-            (point1.ts - point0.ts);
+        block_slope = (BlockMultiplier * (point1.blk - point0.blk)) / (point1.ts - point0.ts);
         uint256 dblock = (block_slope * (_time - point0.ts)) / BlockMultiplier;
         return point0.blk + dblock;
     }
 
-    function withdrawFee(uint256 amount) external onlyAdmin {
-        IERC20(rewardToken).safeTransfer(admin, amount);
+    function sweepTokens(address _token, uint256 _amount) external onlyAdmin {
+        _sendToken(_token, _amount, msg.sender);
+    }
+
+    function _sendToken(
+        address _token,
+        uint256 _amount,
+        address _receiver
+    ) private {
+        if (_token == address(0)) {
+            (bool sent, ) = _receiver.call{value: _amount}('');
+            require(sent, 'failed to send native');
+        } else {
+            IERC20(_token).safeTransfer(_receiver, _amount);
+        }
     }
 
     function transferAdmin(address _admin) external onlyAdmin {
@@ -223,11 +142,7 @@ contract Reward {
         if (epochInfo.length > 0) {
             require(epochInfo[epochInfo.length - 1].endTime <= startTime);
         }
-        (uint256 epochId, uint256 accurateTotalReward) = _addEpoch(
-            startTime,
-            endTime,
-            totalReward
-        );
+        (uint256 epochId, uint256 accurateTotalReward) = _addEpoch(startTime, endTime, totalReward);
         uint256 lastPointTime = point_history[point_history.length - 1].ts;
         if (lastPointTime < block.timestamp) {
             addCheckpoint();
@@ -272,12 +187,7 @@ contract Reward {
         if (lastPointTime < block.timestamp) {
             addCheckpoint();
         }
-        emit LogAddEpoch(
-            startTime,
-            epochLength,
-            epochCount,
-            _epochId + 1 - epochCount
-        );
+        emit LogAddEpoch(startTime, epochLength, epochCount, _epochId + 1 - epochCount);
         return (_epochId + 1 - epochCount, _epochId, accurateTR * epochCount);
     }
 
@@ -289,20 +199,15 @@ contract Reward {
         uint256 endTime,
         uint256 totalReward
     ) internal returns (uint256, uint256) {
-        uint256 rewardPerSecond = (totalReward * RewardMultiplier) /
-            (endTime - startTime);
+        uint256 rewardPerSecond = (totalReward * RewardMultiplier) / (endTime - startTime);
         uint256 epochId = epochInfo.length;
         epochInfo.push(EpochInfo(startTime, endTime, rewardPerSecond, 1, 1));
-        uint256 accurateTotalReward = ((endTime - startTime) *
-            rewardPerSecond) / RewardMultiplier;
+        uint256 accurateTotalReward = ((endTime - startTime) * rewardPerSecond) / RewardMultiplier;
         return (epochId, accurateTotalReward);
     }
 
     /// @notice set epoch reward
-    function updateEpochReward(uint256 epochId, uint256 totalReward)
-        external
-        onlyAdmin
-    {
+    function updateEpochReward(uint256 epochId, uint256 totalReward) external onlyAdmin {
         require(block.timestamp < epochInfo[epochId].startTime);
         epochInfo[epochId].rewardPerSecond =
             (totalReward * RewardMultiplier) /
@@ -318,9 +223,7 @@ contract Reward {
         uint256 lastClaimTime,
         EpochInfo memory epoch
     ) internal view returns (uint256, bool) {
-        uint256 last = lastClaimTime >= epoch.startTime
-            ? lastClaimTime
-            : epoch.startTime;
+        uint256 last = lastClaimTime >= epoch.startTime ? lastClaimTime : epoch.startTime;
         if (last >= epoch.endTime) {
             return (0, true);
         }
@@ -337,8 +240,7 @@ contract Reward {
 
         uint256 power = ve(_ve).balanceOfAtNFT(tokenId, epoch.startBlock);
 
-        uint256 reward = (epoch.rewardPerSecond * (end - last) * power) /
-            (epoch.totalPower * RewardMultiplier);
+        uint256 reward = (epoch.rewardPerSecond * (end - last) * power) / (epoch.totalPower * RewardMultiplier);
         return (reward, finished);
     }
 
@@ -352,14 +254,10 @@ contract Reward {
 
     function checkEpoch(uint256 epochId) internal {
         if (epochInfo[epochId].startBlock == 1) {
-            epochInfo[epochId].startBlock = getBlockByTime(
-                epochInfo[epochId].startTime
-            );
+            epochInfo[epochId].startBlock = getBlockByTime(epochInfo[epochId].startTime);
         }
         if (epochInfo[epochId].totalPower == 1) {
-            epochInfo[epochId].totalPower = ve(_ve).totalSupplyAt(
-                epochInfo[epochId].startBlock
-            );
+            epochInfo[epochId].totalPower = ve(_ve).totalSupplyAt(epochInfo[epochId].startBlock);
         }
     }
 
@@ -374,11 +272,11 @@ contract Reward {
         uint256 reward;
     }
 
-    function claimRewardMany(
-        uint256[] calldata tokenIds,
-        Interval[][] calldata intervals
-    ) public returns (uint256[] memory rewards) {
-        require(tokenIds.length == intervals.length, "length not equal");
+    function claimRewardMany(uint256[] calldata tokenIds, Interval[][] calldata intervals)
+        public
+        returns (uint256[] memory rewards)
+    {
+        require(tokenIds.length == intervals.length, 'length not equal');
         rewards = new uint256[](tokenIds.length);
         for (uint256 i = 0; i < tokenIds.length; i++) {
             rewards[i] = claimReward(tokenIds[i], intervals[i]);
@@ -386,16 +284,9 @@ contract Reward {
         return rewards;
     }
 
-    function claimReward(uint256 tokenId, Interval[] calldata intervals)
-        public
-        returns (uint256 reward)
-    {
+    function claimReward(uint256 tokenId, Interval[] calldata intervals) public returns (uint256 reward) {
         for (uint256 i = 0; i < intervals.length; i++) {
-            reward += claimReward(
-                tokenId,
-                intervals[i].startEpoch,
-                intervals[i].endEpoch
-            );
+            reward += claimReward(tokenId, intervals[i].startEpoch, intervals[i].endEpoch);
         }
         return reward;
     }
@@ -407,7 +298,7 @@ contract Reward {
         uint256 endEpoch
     ) public returns (uint256 reward) {
         require(msg.sender == ve(_ve).ownerOf(tokenId));
-        require(endEpoch < epochInfo.length, "claim out of range");
+        require(endEpoch < epochInfo.length, 'claim out of range');
         EpochInfo memory epoch;
         uint256 lastPointTime = point_history[point_history.length - 1].ts;
         for (uint256 i = startEpoch; i <= endEpoch; i++) {
@@ -490,8 +381,7 @@ contract Reward {
             return (0, 0, 0);
         }
         EpochInfo memory epoch = epochInfo[epochId];
-        uint256 totalReward = ((epoch.endTime - epoch.startTime) *
-            epoch.rewardPerSecond) / RewardMultiplier;
+        uint256 totalReward = ((epoch.endTime - epoch.startTime) * epoch.rewardPerSecond) / RewardMultiplier;
         return (epoch.startTime, epoch.endTime, totalReward);
     }
 
@@ -502,11 +392,7 @@ contract Reward {
 
     /// @notice only for external view functions
     /// Time beyond last checkpoint resulting in inconsistent estimated block number.
-    function getBlockByTimeWithoutLastCheckpoint(uint256 _time)
-        public
-        view
-        returns (uint256)
-    {
+    function getBlockByTimeWithoutLastCheckpoint(uint256 _time) public view returns (uint256) {
         if (point_history[point_history.length - 1].ts >= _time) {
             return getBlockByTime(_time);
         }
@@ -515,19 +401,14 @@ contract Reward {
             return point0.blk;
         }
         uint256 block_slope;
-        block_slope =
-            (BlockMultiplier * (block.number - point0.blk)) /
-            (block.timestamp - point0.ts);
+        block_slope = (BlockMultiplier * (block.number - point0.blk)) / (block.timestamp - point0.ts);
         uint256 dblock = (block_slope * (_time - point0.ts)) / BlockMultiplier;
         return point0.blk + dblock;
     }
 
     function getEpochStartBlock(uint256 epochId) public view returns (uint256) {
         if (epochInfo[epochId].startBlock == 1) {
-            return
-                getBlockByTimeWithoutLastCheckpoint(
-                    epochInfo[epochId].startTime
-                );
+            return getBlockByTimeWithoutLastCheckpoint(epochInfo[epochId].startTime);
         }
         return epochInfo[epochId].startBlock;
     }
@@ -544,11 +425,7 @@ contract Reward {
     }
 
     /// @notice get user's power at epochId
-    function getUserPower(uint256 tokenId, uint256 epochId)
-        public
-        view
-        returns (uint256)
-    {
+    function getUserPower(uint256 tokenId, uint256 epochId) public view returns (uint256) {
         EpochInfo memory epoch = epochInfo[epochId];
         uint256 blk = getBlockByTimeWithoutLastCheckpoint(epoch.startTime);
         if (blk < block.number) {
@@ -589,9 +466,7 @@ contract Reward {
             finished = true;
         }
 
-        reward =
-            (epoch.rewardPerSecond * (end - last) * power) /
-            (totalPower * RewardMultiplier);
+        reward = (epoch.rewardPerSecond * (end - last) * power) / (totalPower * RewardMultiplier);
         return (reward, finished);
     }
 
@@ -616,20 +491,14 @@ contract Reward {
         }
 
         // omit zero rewards and convert epoch list to intervals
-        IntervalReward[] memory intervalRewards_0 = new IntervalReward[](
-            rewards.length
-        );
+        IntervalReward[] memory intervalRewards_0 = new IntervalReward[](rewards.length);
         uint256 intv = 0;
         uint256 intvCursor = 0;
         uint256 sum = 0;
         for (uint256 i = 0; i < rewards.length; i++) {
             if (rewards[i].reward == 0) {
                 if (i != intvCursor) {
-                    intervalRewards_0[intv] = IntervalReward(
-                        rewards[intvCursor].epochId,
-                        rewards[i - 1].epochId,
-                        sum
-                    );
+                    intervalRewards_0[intv] = IntervalReward(rewards[intvCursor].epochId, rewards[i - 1].epochId, sum);
                     intv++;
                     sum = 0;
                 }

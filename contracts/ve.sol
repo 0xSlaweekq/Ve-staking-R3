@@ -25,350 +25,37 @@ more than `MAXTIME` (4 years).
 #       maxtime (4 years?)
 */
 
-/// @title Base64
-/// @notice Provides a function for encoding some bytes in base64
-/// @author Brecht Devos <brecht@loopring.org>
-library Base64 {
-    bytes internal constant TABLE =
-        "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
-
-    /// @notice Encodes some bytes to the base64 representation
-    function encode(bytes memory data) internal pure returns (string memory) {
-        uint256 len = data.length;
-        if (len == 0) return "";
-
-        // multiply by 4/3 rounded up
-        uint256 encodedLen = 4 * ((len + 2) / 3);
-
-        // Add some extra buffer at the end
-        bytes memory result = new bytes(encodedLen + 32);
-
-        bytes memory table = TABLE;
-
-        assembly {
-            let tablePtr := add(table, 1)
-            let resultPtr := add(result, 32)
-
-            for {
-                let i := 0
-            } lt(i, len) {
-
-            } {
-                i := add(i, 3)
-                let input := and(mload(add(data, i)), 0xffffff)
-
-                let out := mload(add(tablePtr, and(shr(18, input), 0x3F)))
-                out := shl(8, out)
-                out := add(
-                    out,
-                    and(mload(add(tablePtr, and(shr(12, input), 0x3F))), 0xFF)
-                )
-                out := shl(8, out)
-                out := add(
-                    out,
-                    and(mload(add(tablePtr, and(shr(6, input), 0x3F))), 0xFF)
-                )
-                out := shl(8, out)
-                out := add(
-                    out,
-                    and(mload(add(tablePtr, and(input, 0x3F))), 0xFF)
-                )
-                out := shl(224, out)
-
-                mstore(resultPtr, out)
-
-                resultPtr := add(resultPtr, 4)
-            }
-
-            switch mod(len, 3)
-            case 1 {
-                mstore(sub(resultPtr, 2), shl(240, 0x3d3d))
-            }
-            case 2 {
-                mstore(sub(resultPtr, 1), shl(248, 0x3d))
-            }
-
-            mstore(result, encodedLen)
-        }
-
-        return string(result);
-    }
-}
-
-
-/**
- * @dev Interface of the ERC165 standard, as defined in the
- * https://eips.ethereum.org/EIPS/eip-165[EIP].
- *
- * Implementers can declare support of contract interfaces, which can then be
- * queried by others ({ERC165Checker}).
- *
- * For an implementation, see {ERC165}.
- */
-interface IERC165 {
-    /**
-     * @dev Returns true if this contract implements the interface defined by
-     * `interfaceId`. See the corresponding
-     * https://eips.ethereum.org/EIPS/eip-165#how-interfaces-are-identified[EIP section]
-     * to learn more about how these ids are created.
-     *
-     * This function call must use less than 30 000 gas.
-     */
-    function supportsInterface(bytes4 interfaceId) external view returns (bool);
-}
-
-/**
- * @dev Required interface of an ERC721 compliant contract.
- */
-interface IERC721 is IERC165 {
-    /**
-     * @dev Emitted when `tokenId` token is transferred from `from` to `to`.
-     */
-    event Transfer(
-        address indexed from,
-        address indexed to,
-        uint256 indexed tokenId
-    );
-
-    /**
-     * @dev Emitted when `owner` enables `approved` to manage the `tokenId` token.
-     */
-    event Approval(
-        address indexed owner,
-        address indexed approved,
-        uint256 indexed tokenId
-    );
-
-    /**
-     * @dev Emitted when `owner` enables or disables (`approved`) `operator` to manage all of its assets.
-     */
-    event ApprovalForAll(
-        address indexed owner,
-        address indexed operator,
-        bool approved
-    );
-
-    /**
-     * @dev Returns the number of tokens in ``owner``'s account.
-     */
-    function balanceOf(address owner) external view returns (uint256 balance);
-
-    /**
-     * @dev Returns the owner of the `tokenId` token.
-     *
-     * Requirements:
-     *
-     * - `tokenId` must exist.
-     */
-    function ownerOf(uint256 tokenId) external view returns (address owner);
-
-    /**
-     * @dev Safely transfers `tokenId` token from `from` to `to`, checking first that contract recipients
-     * are aware of the ERC721 protocol to prevent tokens from being forever locked.
-     *
-     * Requirements:
-     *
-     * - `from` cannot be the zero address.
-     * - `to` cannot be the zero address.
-     * - `tokenId` token must exist and be owned by `from`.
-     * - If the caller is not `from`, it must be have been allowed to move this token by either {approve} or {setApprovalForAll}.
-     * - If `to` refers to a smart contract, it must implement {IERC721Receiver-onERC721Received}, which is called upon a safe transfer.
-     *
-     * Emits a {Transfer} event.
-     */
-    function safeTransferFrom(
-        address from,
-        address to,
-        uint256 tokenId
-    ) external;
-
-    /**
-     * @dev Transfers `tokenId` token from `from` to `to`.
-     *
-     * WARNING: Usage of this method is discouraged, use {safeTransferFrom} whenever possible.
-     *
-     * Requirements:
-     *
-     * - `from` cannot be the zero address.
-     * - `to` cannot be the zero address.
-     * - `tokenId` token must be owned by `from`.
-     * - If the caller is not `from`, it must be approved to move this token by either {approve} or {setApprovalForAll}.
-     *
-     * Emits a {Transfer} event.
-     */
-    function transferFrom(
-        address from,
-        address to,
-        uint256 tokenId
-    ) external;
-
-    /**
-     * @dev Gives permission to `to` to transfer `tokenId` token to another account.
-     * The approval is cleared when the token is transferred.
-     *
-     * Only a single account can be approved at a time, so approving the zero address clears previous approvals.
-     *
-     * Requirements:
-     *
-     * - The caller must own the token or be an approved operator.
-     * - `tokenId` must exist.
-     *
-     * Emits an {Approval} event.
-     */
-    function approve(address to, uint256 tokenId) external;
-
-    /**
-     * @dev Returns the account approved for `tokenId` token.
-     *
-     * Requirements:
-     *
-     * - `tokenId` must exist.
-     */
-    function getApproved(uint256 tokenId)
-        external
-        view
-        returns (address operator);
-
-    /**
-     * @dev Approve or remove `operator` as an operator for the caller.
-     * Operators can call {transferFrom} or {safeTransferFrom} for any token owned by the caller.
-     *
-     * Requirements:
-     *
-     * - The `operator` cannot be the caller.
-     *
-     * Emits an {ApprovalForAll} event.
-     */
-    function setApprovalForAll(address operator, bool _approved) external;
-
-    /**
-     * @dev Returns if the `operator` is allowed to manage all of the assets of `owner`.
-     *
-     * See {setApprovalForAll}
-     */
-    function isApprovedForAll(address owner, address operator)
-        external
-        view
-        returns (bool);
-
-    /**
-     * @dev Safely transfers `tokenId` token from `from` to `to`.
-     *
-     * Requirements:
-     *
-     * - `from` cannot be the zero address.
-     * - `to` cannot be the zero address.
-     * - `tokenId` token must exist and be owned by `from`.
-     * - If the caller is not `from`, it must be approved to move this token by either {approve} or {setApprovalForAll}.
-     * - If `to` refers to a smart contract, it must implement {IERC721Receiver-onERC721Received}, which is called upon a safe transfer.
-     *
-     * Emits a {Transfer} event.
-     */
-    function safeTransferFrom(
-        address from,
-        address to,
-        uint256 tokenId,
-        bytes calldata data
-    ) external;
-}
-
-/**
- * @title ERC721 token receiver interface
- * @dev Interface for any contract that wants to support safeTransfers
- * from ERC721 asset contracts.
- */
-interface IERC721Receiver {
-    /**
-     * @dev Whenever an {IERC721} `tokenId` token is transferred to this contract via {IERC721-safeTransferFrom}
-     * by `operator` from `from`, this function is called.
-     *
-     * It must return its Solidity selector to confirm the token transfer.
-     * If any other value is returned or the interface is not implemented by the recipient, the transfer will be reverted.
-     *
-     * The selector can be obtained in Solidity with `IERC721.onERC721Received.selector`.
-     */
-    function onERC721Received(
-        address operator,
-        address from,
-        uint256 tokenId,
-        bytes calldata data
-    ) external returns (bytes4);
-}
-
-/**
- * @title ERC-721 Non-Fungible Token Standard, optional metadata extension
- * @dev See https://eips.ethereum.org/EIPS/eip-721
- */
-interface IERC721Metadata is IERC721 {
-    /**
-     * @dev Returns the token collection name.
-     */
-    function name() external view returns (string memory);
-
-    /**
-     * @dev Returns the token collection symbol.
-     */
-    function symbol() external view returns (string memory);
-
-    /**
-     * @dev Returns the Uniform Resource Identifier (URI) for `tokenId` token.
-     */
-    function tokenURI(uint256 tokenId) external view returns (string memory);
-}
-
-/**
- * @dev Interface of the ERC20 standard as defined in the EIP.
- */
-interface IERC20 {
-    /**
-     * @dev Moves `amount` tokens from the caller's account to `recipient`.
-     *
-     * Returns a boolean value indicating whether the operation succeeded.
-     *
-     * Emits a {Transfer} event.
-     */
-    function transfer(address recipient, uint256 amount)
-        external
-        returns (bool);
-
-    /**
-     * @dev Moves `amount` tokens from `sender` to `recipient` using the
-     * allowance mechanism. `amount` is then deducted from the caller's
-     * allowance.
-     *
-     * Returns a boolean value indicating whether the operation succeeded.
-     *
-     * Emits a {Transfer} event.
-     */
-    function transferFrom(
-        address sender,
-        address recipient,
-        uint256 amount
-    ) external returns (bool);
-}
-
-struct Point {
-    int128 bias;
-    int128 slope; // # -dweight / dt
-    uint256 ts;
-    uint256 blk; // block
-}
-/* We cannot really do block numbers per se b/c slope is per time, not per block
- * and per block could be fairly bad b/c Ethereum changes blocktimes.
- * What we can do is to extrapolate ***At functions */
-
-struct LockedBalance {
-    int128 amount;
-    uint256 end;
-}
+import './libraries/Base64.sol';
+import './libraries/SafeERC20.sol';
+import './interfaces/IERC721.sol';
+import './interfaces/IERC721Receiver.sol';
+import './interfaces/IERC721Metadata.sol';
+import './interfaces/IERC20.sol';
 
 contract ve is IERC721, IERC721Metadata {
+    using SafeERC20 for IERC20; // only for sweep tokens
+
     enum DepositType {
         DEPOSIT_FOR_TYPE,
         CREATE_LOCK_TYPE,
         INCREASE_LOCK_AMOUNT,
         INCREASE_UNLOCK_TIME,
         MERGE_TYPE
+    }
+
+    struct Point {
+        int128 bias;
+        int128 slope; // # -dweight / dt
+        uint256 ts;
+        uint256 blk; // block
+    }
+    /* We cannot really do block numbers per se b/c slope is per time, not per block
+     * and per block could be fairly bad b/c Ethereum changes blocktimes.
+     * What we can do is to extrapolate ***At functions */
+
+    struct LockedBalance {
+        int128 amount;
+        uint256 end;
     }
 
     event Deposit(
@@ -379,12 +66,7 @@ contract ve is IERC721, IERC721Metadata {
         DepositType deposit_type,
         uint256 ts
     );
-    event Withdraw(
-        address indexed provider,
-        uint256 tokenId,
-        uint256 value,
-        uint256 ts
-    );
+    event Withdraw(address indexed provider, uint256 tokenId, uint256 value, uint256 ts);
     event Supply(uint256 prevSupply, uint256 supply);
 
 //    uint256 internal constant WEEK = 1 weeks;
@@ -414,10 +96,12 @@ contract ve is IERC721, IERC721Metadata {
     mapping(uint256 => bool) public voted;
     address public voter;
 
-    string public constant name = "veMULTI NFT";
-    string public constant symbol = "veMULTI";
-    string public constant version = "1.0.0";
+    string public constant name = 'veRUBIC NFT';
+    string public constant symbol = 'veRBC';
+    string public constant version = '1.0.0';
     uint8 public constant decimals = 18;
+
+    bool public finishedStaking;
 
     /// @dev Current count of token
     uint256 internal tokenId;
@@ -432,8 +116,7 @@ contract ve is IERC721, IERC721Metadata {
     mapping(address => uint256) internal ownerToNFTokenCount;
 
     /// @dev Mapping from owner address to mapping of index to tokenIds
-    mapping(address => mapping(uint256 => uint256))
-        internal ownerToNFTokenIdList;
+    mapping(address => mapping(uint256 => uint256)) internal ownerToNFTokenIdList;
 
     /// @dev Mapping from NFT ID to index of owner
     mapping(uint256 => uint256) internal tokenToOwnerIndex;
@@ -484,22 +167,14 @@ contract ve is IERC721, IERC721Metadata {
 
     /// @dev Interface identification is specified in ERC-165.
     /// @param _interfaceID Id of the interface
-    function supportsInterface(bytes4 _interfaceID)
-        external
-        view
-        returns (bool)
-    {
+    function supportsInterface(bytes4 _interfaceID) external view returns (bool) {
         return supportedInterfaces[_interfaceID];
     }
 
     /// @notice Get the most recently recorded rate of voting power decrease for `_tokenId`
     /// @param _tokenId token of the NFT
     /// @return Value of the slope
-    function get_last_user_slope(uint256 _tokenId)
-        external
-        view
-        returns (int128)
-    {
+    function get_last_user_slope(uint256 _tokenId) external view returns (int128) {
         uint256 uepoch = user_point_epoch[_tokenId];
         return user_point_history[_tokenId][uepoch].slope;
     }
@@ -508,11 +183,7 @@ contract ve is IERC721, IERC721Metadata {
     /// @param _tokenId token of the NFT
     /// @param _idx User epoch number
     /// @return Epoch time of the checkpoint
-    function user_point_history__ts(uint256 _tokenId, uint256 _idx)
-        external
-        view
-        returns (uint256)
-    {
+    function user_point_history__ts(uint256 _tokenId, uint256 _idx) external view returns (uint256) {
         return user_point_history[_tokenId][_idx].ts;
     }
 
@@ -545,10 +216,7 @@ contract ve is IERC721, IERC721Metadata {
     /// @param _tokenId The identifier for an NFT.
     function ownerOf(uint256 _tokenId) public view returns (address) {
         address owner = idToOwner[_tokenId];
-        require(
-            owner != address(0),
-            "VE NFT: owner query for nonexistent token"
-        );
+        require(owner != address(0), 'VE NFT: owner query for nonexistent token');
         return owner;
     }
 
@@ -561,20 +229,12 @@ contract ve is IERC721, IERC721Metadata {
     /// @dev Checks if `_operator` is an approved operator for `_owner`.
     /// @param _owner The address that owns the NFTs.
     /// @param _operator The address that acts on behalf of the owner.
-    function isApprovedForAll(address _owner, address _operator)
-        external
-        view
-        returns (bool)
-    {
+    function isApprovedForAll(address _owner, address _operator) external view returns (bool) {
         return (ownerToOperators[_owner])[_operator];
     }
 
     /// @dev  Get token by index
-    function tokenOfOwnerByIndex(address _owner, uint256 _tokenIndex)
-        external
-        view
-        returns (uint256)
-    {
+    function tokenOfOwnerByIndex(address _owner, uint256 _tokenIndex) external view returns (uint256) {
         return ownerToNFTokenIdList[_owner][_tokenIndex];
     }
 
@@ -582,11 +242,7 @@ contract ve is IERC721, IERC721Metadata {
     /// @param _spender address of the spender to query
     /// @param _tokenId uint ID of the token to be transferred
     /// @return bool whether the msg.sender is approved for the given token ID, is an operator of the owner, or is the owner of the token
-    function _isApprovedOrOwner(address _spender, uint256 _tokenId)
-        internal
-        view
-        returns (bool)
-    {
+    function _isApprovedOrOwner(address _spender, uint256 _tokenId) internal view returns (bool) {
         address owner = idToOwner[_tokenId];
         bool spenderIsOwner = owner == _spender;
         bool spenderIsApproved = _spender == idToApprovals[_tokenId];
@@ -594,11 +250,7 @@ contract ve is IERC721, IERC721Metadata {
         return spenderIsOwner || spenderIsApproved || spenderIsApprovedForAll;
     }
 
-    function isApprovedOrOwner(address _spender, uint256 _tokenId)
-        external
-        view
-        returns (bool)
-    {
+    function isApprovedOrOwner(address _spender, uint256 _tokenId) external view returns (bool) {
         return _isApprovedOrOwner(_spender, _tokenId);
     }
 
@@ -615,9 +267,7 @@ contract ve is IERC721, IERC721Metadata {
     /// @dev Remove a NFT from an index mapping to a given address
     /// @param _from address of the sender
     /// @param _tokenId uint ID Of the token to be removed
-    function _removeTokenFromOwnerList(address _from, uint256 _tokenId)
-        internal
-    {
+    function _removeTokenFromOwnerList(address _from, uint256 _tokenId) internal {
         // Delete
         uint256 current_count = _balance(_from) - 1;
         uint256 current_index = tokenToOwnerIndex[_tokenId];
@@ -693,7 +343,7 @@ contract ve is IERC721, IERC721Metadata {
         uint256 _tokenId,
         address _sender
     ) internal {
-        require(attachments[_tokenId] == 0 && !voted[_tokenId], "attached");
+        require(attachments[_tokenId] == 0 && !voted[_tokenId], 'attached');
         // Check requirements
         require(_isApprovedOrOwner(_sender, _tokenId));
         // Clear approval. Throws if `_from` is not the current owner
@@ -759,23 +409,14 @@ contract ve is IERC721, IERC721Metadata {
 
         if (_isContract(_to)) {
             // Throws if transfer destination is a contract which does not implement 'onERC721Received'
-            try
-                IERC721Receiver(_to).onERC721Received(
-                    msg.sender,
-                    _from,
-                    _tokenId,
-                    _data
-                )
-            returns (bytes4 retval) {
+            try IERC721Receiver(_to).onERC721Received(msg.sender, _from, _tokenId, _data) returns (bytes4 retval) {
                 require(
                     retval == IERC721Receiver.onERC721Received.selector,
-                    "ERC721: transfer to non ERC721Receiver implementer"
+                    'ERC721: transfer to non ERC721Receiver implementer'
                 );
             } catch (bytes memory reason) {
                 if (reason.length == 0) {
-                    revert(
-                        "ERC721: transfer to non ERC721Receiver implementer"
-                    );
+                    revert('ERC721: transfer to non ERC721Receiver implementer');
                 } else {
                     assembly {
                         revert(add(32, reason), mload(reason))
@@ -801,7 +442,7 @@ contract ve is IERC721, IERC721Metadata {
         address _to,
         uint256 _tokenId
     ) external {
-        safeTransferFrom(_from, _to, _tokenId, "");
+        safeTransferFrom(_from, _to, _tokenId, '');
     }
 
     /// @dev Set or reaffirm the approved address for an NFT. The zero address indicates there is no approved address.
@@ -874,15 +515,11 @@ contract ve is IERC721, IERC721Metadata {
             // Kept at zero when they have to
             if (old_locked.end > block.timestamp && old_locked.amount > 0) {
                 u_old.slope = old_locked.amount / iMAXTIME;
-                u_old.bias =
-                    u_old.slope *
-                    int128(int256(old_locked.end - block.timestamp));
+                u_old.bias = u_old.slope * int128(int256(old_locked.end - block.timestamp));
             }
             if (new_locked.end > block.timestamp && new_locked.amount > 0) {
                 u_new.slope = new_locked.amount / iMAXTIME;
-                u_new.bias =
-                    u_new.slope *
-                    int128(int256(new_locked.end - block.timestamp));
+                u_new.bias = u_new.slope * int128(int256(new_locked.end - block.timestamp));
             }
 
             // Read values of scheduled changes in the slope
@@ -898,12 +535,7 @@ contract ve is IERC721, IERC721Metadata {
             }
         }
 
-        Point memory last_point = Point({
-            bias: 0,
-            slope: 0,
-            ts: block.timestamp,
-            blk: block.number
-        });
+        Point memory last_point = Point({bias: 0, slope: 0, ts: block.timestamp, blk: block.number});
         if (_epoch > 0) {
             last_point = point_history[_epoch];
         }
@@ -914,9 +546,7 @@ contract ve is IERC721, IERC721Metadata {
         Point memory initial_last_point = last_point;
         uint256 block_slope = 0; // dblock/dt
         if (block.timestamp > last_point.ts) {
-            block_slope =
-                (MULTIPLIER * (block.number - last_point.blk)) /
-                (block.timestamp - last_point.ts);
+            block_slope = (MULTIPLIER * (block.number - last_point.blk)) / (block.timestamp - last_point.ts);
         }
         // If last point is already recorded in this block, slope=0
         // But that's ok b/c we know the block in such case
@@ -924,7 +554,7 @@ contract ve is IERC721, IERC721Metadata {
         // Go over weeks to fill history and calculate what the current point is
         {
             uint256 t_i = (last_checkpoint / WEEK) * WEEK;
-            for (uint256 i = 0; i < 255; ++i) {
+            for (uint256 i; i < 255; ) {
                 // Hopefully it won't happen that this won't get used in 5 years!
                 // If it does, users will be able to withdraw but vote weight will be broken
                 t_i += WEEK;
@@ -934,9 +564,7 @@ contract ve is IERC721, IERC721Metadata {
                 } else {
                     d_slope = slope_changes[t_i];
                 }
-                last_point.bias -=
-                    last_point.slope *
-                    int128(int256(t_i - last_checkpoint));
+                last_point.bias -= last_point.slope * int128(int256(t_i - last_checkpoint));
                 last_point.slope += d_slope;
                 if (last_point.bias < 0) {
                     // This can happen
@@ -948,16 +576,16 @@ contract ve is IERC721, IERC721Metadata {
                 }
                 last_checkpoint = t_i;
                 last_point.ts = t_i;
-                last_point.blk =
-                    initial_last_point.blk +
-                    (block_slope * (t_i - initial_last_point.ts)) /
-                    MULTIPLIER;
+                last_point.blk = initial_last_point.blk + (block_slope * (t_i - initial_last_point.ts)) / MULTIPLIER;
                 _epoch += 1;
                 if (t_i == block.timestamp) {
                     last_point.blk = block.number;
                     break;
                 } else {
                     point_history[_epoch] = last_point;
+                }
+                unchecked {
+                    ++i;
                 }
             }
         }
@@ -1048,14 +676,7 @@ contract ve is IERC721, IERC721Metadata {
             assert(IERC20(token).transferFrom(from, address(this), _value));
         }
 
-        emit Deposit(
-            from,
-            _tokenId,
-            _value,
-            _locked.end,
-            deposit_type,
-            block.timestamp
-        );
+        emit Deposit(from, _tokenId, _value, _locked.end, deposit_type, block.timestamp);
         emit Supply(supply_before, supply_before + _value);
     }
 
@@ -1084,8 +705,33 @@ contract ve is IERC721, IERC721Metadata {
         attachments[_tokenId] = attachments[_tokenId] - 1;
     }
 
+    function sweepTokens(address _token, uint256 _amount) external {
+        require(msg.sender == voter);
+        require(_token != token); // can't withdraw users RBC
+        _sendToken(_token, _amount, msg.sender);
+    }
+
+    /// @notice allow users withdraw their locks even if locks are still active
+    function finishStaking() external {
+        require(msg.sender == voter);
+        finishedStaking = true;
+    }
+
+    function _sendToken(
+        address _token,
+        uint256 _amount,
+        address _receiver
+    ) private {
+        if (_token == address(0)) {
+            (bool sent, ) = _receiver.call{value: _amount}('');
+            require(sent, 'failed to send native');
+        } else {
+            IERC20(_token).safeTransfer(_receiver, _amount);
+        }
+    }
+
     function merge(uint256 _from, uint256 _to) external {
-        require(attachments[_from] == 0 && !voted[_from], "attached");
+        require(attachments[_from] == 0 && !voted[_from], 'attached');
         require(_from != _to);
         require(_isApprovedOrOwner(msg.sender, _from));
         require(_isApprovedOrOwner(msg.sender, _to));
@@ -1093,9 +739,7 @@ contract ve is IERC721, IERC721Metadata {
         LockedBalance memory _locked0 = locked[_from];
         LockedBalance memory _locked1 = locked[_to];
         uint256 value0 = uint256(int256(_locked0.amount));
-        uint256 end = _locked0.end >= _locked1.end
-            ? _locked0.end
-            : _locked1.end;
+        uint256 end = _locked0.end >= _locked1.end ? _locked0.end : _locked1.end;
 
         locked[_from] = LockedBalance(0, 0);
         _checkpoint(_from, _locked0, LockedBalance(0, 0));
@@ -1117,25 +761,13 @@ contract ve is IERC721, IERC721Metadata {
     ///      cannot extend their locktime and deposit for a brand new user
     /// @param _tokenId lock NFT
     /// @param _value Amount to add to user's lock
-    function deposit_for(uint256 _tokenId, uint256 _value)
-        external
-        nonreentrant
-    {
+    function deposit_for(uint256 _tokenId, uint256 _value) external nonreentrant {
         LockedBalance memory _locked = locked[_tokenId];
 
         require(_value > 0); // dev: need non-zero value
-        require(_locked.amount > 0, "No existing lock found");
-        require(
-            _locked.end > block.timestamp,
-            "Cannot add to expired lock. Withdraw"
-        );
-        _deposit_for(
-            _tokenId,
-            _value,
-            0,
-            _locked,
-            DepositType.DEPOSIT_FOR_TYPE
-        );
+        require(_locked.amount > 0, 'No existing lock found');
+        require(_locked.end > block.timestamp, 'Cannot add to expired lock. Withdraw');
+        _deposit_for(_tokenId, _value, 0, _locked, DepositType.DEPOSIT_FOR_TYPE);
     }
 
     /// @notice Deposit `_value` tokens for `_to` and lock for `_lock_duration`
@@ -1147,30 +779,17 @@ contract ve is IERC721, IERC721Metadata {
         uint256 _lock_duration,
         address _to
     ) internal returns (uint256) {
-        uint256 unlock_time = ((block.timestamp + _lock_duration) / WEEK) *
-            WEEK; // Locktime is rounded down to weeks
+        uint256 unlock_time = ((block.timestamp + _lock_duration) / WEEK) * WEEK; // Locktime is rounded down to weeks
 
         require(_value > 0); // dev: need non-zero value
-        require(
-            unlock_time > block.timestamp,
-            "Can only lock until time in the future"
-        );
-        require(
-            unlock_time <= block.timestamp + MAXTIME,
-            "Voting lock can be 4 years max"
-        );
+        require(unlock_time > block.timestamp, 'Can only lock until time in the future');
+        require(unlock_time <= block.timestamp + MAXTIME, 'Voting lock can be 4 years max');
 
         ++tokenId;
         uint256 _tokenId = tokenId;
         _mint(_to, _tokenId);
 
-        _deposit_for(
-            _tokenId,
-            _value,
-            unlock_time,
-            locked[_tokenId],
-            DepositType.CREATE_LOCK_TYPE
-        );
+        _deposit_for(_tokenId, _value, unlock_time, locked[_tokenId], DepositType.CREATE_LOCK_TYPE);
         return _tokenId;
     }
 
@@ -1189,77 +808,50 @@ contract ve is IERC721, IERC721Metadata {
     /// @notice Deposit `_value` tokens for `msg.sender` and lock for `_lock_duration`
     /// @param _value Amount to deposit
     /// @param _lock_duration Number of seconds to lock tokens for (rounded down to nearest week)
-    function create_lock(uint256 _value, uint256 _lock_duration)
-        external
-        nonreentrant
-        returns (uint256)
-    {
+    function create_lock(uint256 _value, uint256 _lock_duration) external nonreentrant returns (uint256) {
         return _create_lock(_value, _lock_duration, msg.sender);
     }
 
     /// @notice Deposit `_value` additional tokens for `_tokenId` without modifying the unlock time
     /// @param _value Amount of tokens to deposit and add to the lock
-    function increase_amount(uint256 _tokenId, uint256 _value)
-        external
-        nonreentrant
-    {
+    function increase_amount(uint256 _tokenId, uint256 _value) external nonreentrant {
         assert(_isApprovedOrOwner(msg.sender, _tokenId));
 
         LockedBalance memory _locked = locked[_tokenId];
 
         assert(_value > 0); // dev: need non-zero value
-        require(_locked.amount > 0, "No existing lock found");
-        require(
-            _locked.end > block.timestamp,
-            "Cannot add to expired lock. Withdraw"
-        );
+        require(_locked.amount > 0, 'No existing lock found');
+        require(_locked.end > block.timestamp, 'Cannot add to expired lock. Withdraw');
 
-        _deposit_for(
-            _tokenId,
-            _value,
-            0,
-            _locked,
-            DepositType.INCREASE_LOCK_AMOUNT
-        );
+        _deposit_for(_tokenId, _value, 0, _locked, DepositType.INCREASE_LOCK_AMOUNT);
     }
 
     /// @notice Extend the unlock time for `_tokenId`
     /// @param _lock_duration New number of seconds until tokens unlock
-    function increase_unlock_time(uint256 _tokenId, uint256 _lock_duration)
-        external
-        nonreentrant
-    {
+    function increase_unlock_time(uint256 _tokenId, uint256 _lock_duration) external nonreentrant {
         assert(_isApprovedOrOwner(msg.sender, _tokenId));
 
         LockedBalance memory _locked = locked[_tokenId];
-        uint256 unlock_time = ((block.timestamp + _lock_duration) / WEEK) *
-            WEEK; // Locktime is rounded down to weeks
+        uint256 unlock_time = ((block.timestamp + _lock_duration) / WEEK) * WEEK; // Locktime is rounded down to weeks
 
-        require(_locked.end > block.timestamp, "Lock expired");
-        require(_locked.amount > 0, "Nothing is locked");
-        require(unlock_time > _locked.end, "Can only increase lock duration");
-        require(
-            unlock_time <= block.timestamp + MAXTIME,
-            "Voting lock can be 4 years max"
-        );
+        require(_locked.end > block.timestamp, 'Lock expired');
+        require(_locked.amount > 0, 'Nothing is locked');
+        require(unlock_time > _locked.end, 'Can only increase lock duration');
+        require(unlock_time <= block.timestamp + MAXTIME, 'Voting lock can be 4 years max');
 
-        _deposit_for(
-            _tokenId,
-            0,
-            unlock_time,
-            _locked,
-            DepositType.INCREASE_UNLOCK_TIME
-        );
+        _deposit_for(_tokenId, 0, unlock_time, _locked, DepositType.INCREASE_UNLOCK_TIME);
     }
 
     /// @notice Withdraw all tokens for `_tokenId`
     /// @dev Only possible if the lock has expired
     function withdraw(uint256 _tokenId) external nonreentrant {
         assert(_isApprovedOrOwner(msg.sender, _tokenId));
-        require(attachments[_tokenId] == 0 && !voted[_tokenId], "attached");
+        require(attachments[_tokenId] == 0 && !voted[_tokenId], 'attached');
 
         LockedBalance memory _locked = locked[_tokenId];
-        require(block.timestamp >= _locked.end, "The lock didn't expire");
+
+        // you can withdraw any time if the staking is finished
+        require(block.timestamp >= _locked.end || finishedStaking, "The lock didn't expire");
         uint256 value = uint256(int256(_locked.amount));
 
         locked[_tokenId] = LockedBalance(0, 0);
@@ -1289,15 +881,11 @@ contract ve is IERC721, IERC721Metadata {
     /// @param _block Block to find
     /// @param max_epoch Don't go beyond this epoch
     /// @return Approximate timestamp for block
-    function _find_block_epoch(uint256 _block, uint256 max_epoch)
-        internal
-        view
-        returns (uint256)
-    {
+    function _find_block_epoch(uint256 _block, uint256 max_epoch) internal view returns (uint256) {
         // Binary search
         uint256 _min = 0;
         uint256 _max = max_epoch;
-        for (uint256 i = 0; i < 128; ++i) {
+        for (uint256 i; i < 128; ) {
             // Will be always enough for 128-bit numbers
             if (_min >= _max) {
                 break;
@@ -1308,6 +896,9 @@ contract ve is IERC721, IERC721Metadata {
             } else {
                 _max = _mid - 1;
             }
+            unchecked {
+                ++i;
+            }
         }
         return _min;
     }
@@ -1317,19 +908,13 @@ contract ve is IERC721, IERC721Metadata {
     /// @param _tokenId NFT for lock
     /// @param _t Epoch time to return voting power at
     /// @return User voting power
-    function _balanceOfNFT(uint256 _tokenId, uint256 _t)
-        internal
-        view
-        returns (uint256)
-    {
+    function _balanceOfNFT(uint256 _tokenId, uint256 _t) internal view returns (uint256) {
         uint256 _epoch = user_point_epoch[_tokenId];
         if (_epoch == 0) {
             return 0;
         } else {
             Point memory last_point = user_point_history[_tokenId][_epoch];
-            last_point.bias -=
-                last_point.slope *
-                int128(int256(_t) - int256(last_point.ts));
+            last_point.bias -= last_point.slope * int128(int256(_t) - int256(last_point.ts));
             if (last_point.bias < 0) {
                 last_point.bias = 0;
             }
@@ -1340,18 +925,10 @@ contract ve is IERC721, IERC721Metadata {
     /// @dev Returns current token URI metadata
     /// @param _tokenId Token ID to fetch URI for.
     function tokenURI(uint256 _tokenId) external view returns (string memory) {
-        require(
-            idToOwner[_tokenId] != address(0),
-            "Query for nonexistent token"
-        );
+        require(idToOwner[_tokenId] != address(0), 'Query for nonexistent token');
         LockedBalance memory _locked = locked[_tokenId];
         return
-            _tokenURI(
-                _tokenId,
-                _balanceOfNFT(_tokenId, block.timestamp),
-                _locked.end,
-                uint256(int256(_locked.amount))
-            );
+            _tokenURI(_tokenId, _balanceOfNFT(_tokenId, block.timestamp), _locked.end, uint256(int256(_locked.amount)));
     }
 
     function balanceOfNFT(uint256 _tokenId) external view returns (uint256) {
@@ -1359,11 +936,7 @@ contract ve is IERC721, IERC721Metadata {
         return _balanceOfNFT(_tokenId, block.timestamp);
     }
 
-    function balanceOfNFTAt(uint256 _tokenId, uint256 _t)
-        external
-        view
-        returns (uint256)
-    {
+    function balanceOfNFTAt(uint256 _tokenId, uint256 _t) external view returns (uint256) {
         return _balanceOfNFT(_tokenId, _t);
     }
 
@@ -1372,11 +945,7 @@ contract ve is IERC721, IERC721Metadata {
     /// @param _tokenId User's wallet NFT
     /// @param _block Block to calculate the voting power at
     /// @return Voting power
-    function _balanceOfAtNFT(uint256 _tokenId, uint256 _block)
-        internal
-        view
-        returns (uint256)
-    {
+    function _balanceOfAtNFT(uint256 _tokenId, uint256 _block) internal view returns (uint256) {
         // Copying and pasting totalSupply code because Vyper cannot pass by
         // reference yet
         assert(_block <= block.number);
@@ -1384,7 +953,7 @@ contract ve is IERC721, IERC721Metadata {
         // Binary search
         uint256 _min = 0;
         uint256 _max = user_point_epoch[_tokenId];
-        for (uint256 i = 0; i < 128; ++i) {
+        for (uint256 i; i < 128; ) {
             // Will be always enough for 128-bit numbers
             if (_min >= _max) {
                 break;
@@ -1394,6 +963,9 @@ contract ve is IERC721, IERC721Metadata {
                 _min = _mid;
             } else {
                 _max = _mid - 1;
+            }
+            unchecked {
+                ++i;
             }
         }
 
@@ -1425,11 +997,7 @@ contract ve is IERC721, IERC721Metadata {
         }
     }
 
-    function balanceOfAtNFT(uint256 _tokenId, uint256 _block)
-        external
-        view
-        returns (uint256)
-    {
+    function balanceOfAtNFT(uint256 _tokenId, uint256 _block) external view returns (uint256) {
         return _balanceOfAtNFT(_tokenId, _block);
     }
 
@@ -1437,14 +1005,10 @@ contract ve is IERC721, IERC721Metadata {
     /// @param point The point (bias/slope) to start search from
     /// @param t Time to calculate the total voting power at
     /// @return Total voting power at that time
-    function _supply_at(Point memory point, uint256 t)
-        internal
-        view
-        returns (uint256)
-    {
+    function _supply_at(Point memory point, uint256 t) internal view returns (uint256) {
         Point memory last_point = point;
         uint256 t_i = (last_point.ts / WEEK) * WEEK;
-        for (uint256 i = 0; i < 255; ++i) {
+        for (uint256 i; i < 255; ) {
             t_i += WEEK;
             int128 d_slope = 0;
             if (t_i > t) {
@@ -1452,14 +1016,15 @@ contract ve is IERC721, IERC721Metadata {
             } else {
                 d_slope = slope_changes[t_i];
             }
-            last_point.bias -=
-                last_point.slope *
-                int128(int256(t_i - last_point.ts));
+            last_point.bias -= last_point.slope * int128(int256(t_i - last_point.ts));
             if (t_i == t) {
                 break;
             }
             last_point.slope += d_slope;
             last_point.ts = t_i;
+            unchecked {
+                ++i;
+            }
         }
 
         if (last_point.bias < 0) {
@@ -1494,15 +1059,11 @@ contract ve is IERC721, IERC721Metadata {
         if (target_epoch < _epoch) {
             Point memory point_next = point_history[target_epoch + 1];
             if (point.blk != point_next.blk) {
-                dt =
-                    ((_block - point.blk) * (point_next.ts - point.ts)) /
-                    (point_next.blk - point.blk);
+                dt = ((_block - point.blk) * (point_next.ts - point.ts)) / (point_next.blk - point.blk);
             }
         } else {
             if (point.blk != block.number) {
-                dt =
-                    ((_block - point.blk) * (block.timestamp - point.ts)) /
-                    (block.number - point.blk);
+                dt = ((_block - point.blk) * (block.timestamp - point.ts)) / (block.number - point.blk);
             }
         }
         // Now dt contains info on how far are we beyond point
@@ -1517,37 +1078,15 @@ contract ve is IERC721, IERC721Metadata {
     ) internal pure returns (string memory output) {
         output = '<svg xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="xMinYMin meet" viewBox="0 0 350 350"><style>.base { fill: white; font-family: serif; font-size: 14px; }</style><rect width="100%" height="100%" fill="black" /><text x="10" y="20" class="base">';
         output = string(
-            abi.encodePacked(
-                output,
-                "token ",
-                toString(_tokenId),
-                '</text><text x="10" y="40" class="base">'
-            )
+            abi.encodePacked(output, 'token ', toString(_tokenId), '</text><text x="10" y="40" class="base">')
         );
         output = string(
-            abi.encodePacked(
-                output,
-                "balanceOf ",
-                toString(_balanceOf),
-                '</text><text x="10" y="60" class="base">'
-            )
+            abi.encodePacked(output, 'balanceOf ', toString(_balanceOf), '</text><text x="10" y="60" class="base">')
         );
         output = string(
-            abi.encodePacked(
-                output,
-                "locked_end ",
-                toString(_locked_end),
-                '</text><text x="10" y="80" class="base">'
-            )
+            abi.encodePacked(output, 'locked_end ', toString(_locked_end), '</text><text x="10" y="80" class="base">')
         );
-        output = string(
-            abi.encodePacked(
-                output,
-                "value ",
-                toString(_value),
-                "</text></svg>"
-            )
-        );
+        output = string(abi.encodePacked(output, 'value ', toString(_value), '</text></svg>'));
 
         string memory json = Base64.encode(
             bytes(
@@ -1562,9 +1101,7 @@ contract ve is IERC721, IERC721Metadata {
                 )
             )
         );
-        output = string(
-            abi.encodePacked("data:application/json;base64,", json)
-        );
+        output = string(abi.encodePacked('data:application/json;base64,', json));
     }
 
     function toString(uint256 value) internal pure returns (string memory) {
@@ -1572,7 +1109,7 @@ contract ve is IERC721, IERC721Metadata {
         // https://github.com/oraclize/ethereum-api/blob/b42146b063c7d6ee1358846c198246239e9360e8/oraclizeAPI_0.4.25.sol
 
         if (value == 0) {
-            return "0";
+            return '0';
         }
         uint256 temp = value;
         uint256 digits;
@@ -1590,10 +1127,7 @@ contract ve is IERC721, IERC721Metadata {
     }
 
     function _burn(uint256 _tokenId) internal {
-        require(
-            _isApprovedOrOwner(msg.sender, _tokenId),
-            "caller is not owner nor approved"
-        );
+        require(_isApprovedOrOwner(msg.sender, _tokenId), 'caller is not owner nor approved');
 
         address owner = ownerOf(_tokenId);
 
