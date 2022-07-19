@@ -6,64 +6,86 @@ const hre = require("hardhat");
 
 async function main() {
   const tokenFactory = await ethers.getContractFactory("TestERC20");
-  const token = (await tokenFactory.deploy()) as TestERC20;
+  const token1 = (await tokenFactory.deploy()) as TestERC20;
 
-  console.log("Token deployed to:", token.address);
+  const token2 = (await tokenFactory.deploy()) as TestERC20;
+
+  console.log("Token deployed to:", token1.address);
+  console.log("Token deployed to:", token2.address);
 
   const veNFTFactory = await ethers.getContractFactory("contracts/ve.sol:ve");
-  const veNFT = (await veNFTFactory.deploy(token.address)) as Ve;
+  const veNFT = (await veNFTFactory.deploy(token1.address)) as Ve;
 
   console.log("Ve deployed to:", veNFT.address);
 
   const RewardFactory = await ethers.getContractFactory("Reward");
-  const reward = (await RewardFactory.deploy(
+  const reward1 = (await RewardFactory.deploy(
     veNFT.address,
-    token.address
+    token1.address
   )) as Reward;
 
-  console.log("Reward deployed to:", reward.address);
+  console.log("Reward deployed to:", reward1.address);
+
+  const reward2 = (await RewardFactory.deploy(
+    veNFT.address,
+    token2.address
+  )) as Reward;
+
+  console.log("Reward deployed to:", reward2.address);
 
   // eslint-disable-next-line promise/param-names
   await new Promise((r) => setTimeout(r, 10000));
 
   await hre.run("verify:verify", {
-    address: token.address,
+    address: token1.address,
+    constructorArguments: [],
+  });
+
+  await hre.run("verify:verify", {
+    address: token2.address,
     constructorArguments: [],
   });
 
   await hre.run("verify:verify", {
     address: veNFT.address,
-    constructorArguments: [token.address],
+    constructorArguments: [token1.address],
   });
 
   await hre.run("verify:verify", {
-    address: reward.address,
-    constructorArguments: [veNFT.address, token.address],
+    address: reward1.address,
+    constructorArguments: [veNFT.address, token1.address],
   });
 
-  await token.mint(reward.address, Web3.utils.toWei("10000000", "ether")); // 100 mil
+  await hre.run("verify:verify", {
+    address: reward2.address,
+    constructorArguments: [veNFT.address, token2.address],
+  });
 
-  await token.approve(veNFT.address, Web3.utils.toWei("100000000", "ether"));
-  await token.approve(reward.address, Web3.utils.toWei("100000000", "ether"));
+  await token1.mint(reward1.address, Web3.utils.toWei("10000000", "ether")); // 100 mil
+  await token2.mint(reward2.address, Web3.utils.toWei("10000000", "ether")); // 100 mil
+
+  await token1.approve(veNFT.address, Web3.utils.toWei("100000000", "ether"));
+  await token1.approve(reward2.address, Web3.utils.toWei("100000000", "ether"));
+  await token2.approve(reward2.address, Web3.utils.toWei("100000000", "ether"));
 
   const blockNum = await ethers.provider.getBlockNumber();
   const block = await ethers.provider.getBlock(blockNum);
   const timestamp = block.timestamp;
 
-  const week = 600;
-  await reward.addEpochBatch(
+  const week = 600; // 10 minutes
+  await reward1.addEpochBatch(
     timestamp,
     week,
-    10,
+    2,
     Web3.utils.toWei("10000", "ether")
   );
 
-  // const Greeter = await ethers.getContractFactory("Greeter");
-  // const greeter = await Greeter.deploy("Hello, Hardhat!");
-  //
-  // await greeter.deployed();
-  //
-  // console.log("Greeter deployed to:", greeter.address);
+  await reward2.addEpochBatch(
+    timestamp + 600 * 2,
+    week,
+    2,
+    Web3.utils.toWei("10000", "ether")
+  );
 }
 
 main().catch((error) => {

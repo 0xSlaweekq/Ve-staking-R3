@@ -506,8 +506,8 @@ contract ve is IERC721, IERC721Metadata {
     ) internal {
         Point memory u_old;
         Point memory u_new;
-        int128 old_dslope = 0;
-        int128 new_dslope = 0;
+        int128 old_dslope;
+        int128 new_dslope;
         uint256 _epoch = epoch;
 
         if (_tokenId != 0) {
@@ -544,7 +544,7 @@ contract ve is IERC721, IERC721Metadata {
         // (approximately, for *At methods) and save them
         // as we cannot figure that out exactly from inside the contract
         Point memory initial_last_point = last_point;
-        uint256 block_slope = 0; // dblock/dt
+        uint256 block_slope; // dblock/dt
         if (block.timestamp > last_point.ts) {
             block_slope = (MULTIPLIER * (block.number - last_point.blk)) / (block.timestamp - last_point.ts);
         }
@@ -558,7 +558,7 @@ contract ve is IERC721, IERC721Metadata {
                 // Hopefully it won't happen that this won't get used in 5 years!
                 // If it does, users will be able to withdraw but vote weight will be broken
                 t_i += WEEK;
-                int128 d_slope = 0;
+                int128 d_slope;
                 if (t_i > block.timestamp) {
                     t_i = block.timestamp;
                 } else {
@@ -883,7 +883,7 @@ contract ve is IERC721, IERC721Metadata {
     /// @return Approximate timestamp for block
     function _find_block_epoch(uint256 _block, uint256 max_epoch) internal view returns (uint256) {
         // Binary search
-        uint256 _min = 0;
+        uint256 _min;
         uint256 _max = max_epoch;
         for (uint256 i; i < 128; ) {
             // Will be always enough for 128-bit numbers
@@ -951,7 +951,7 @@ contract ve is IERC721, IERC721Metadata {
         assert(_block <= block.number);
 
         // Binary search
-        uint256 _min = 0;
+        uint256 _min;
         uint256 _max = user_point_epoch[_tokenId];
         for (uint256 i; i < 128; ) {
             // Will be always enough for 128-bit numbers
@@ -974,8 +974,8 @@ contract ve is IERC721, IERC721Metadata {
         uint256 max_epoch = epoch;
         uint256 _epoch = _find_block_epoch(_block, max_epoch);
         Point memory point_0 = point_history[_epoch];
-        uint256 d_block = 0;
-        uint256 d_t = 0;
+        uint256 d_block;
+        uint256 d_t;
         if (_epoch < max_epoch) {
             Point memory point_1 = point_history[_epoch + 1];
             d_block = point_1.blk - point_0.blk;
@@ -1010,7 +1010,7 @@ contract ve is IERC721, IERC721Metadata {
         uint256 t_i = (last_point.ts / WEEK) * WEEK;
         for (uint256 i; i < 255; ) {
             t_i += WEEK;
-            int128 d_slope = 0;
+            int128 d_slope;
             if (t_i > t) {
                 t_i = t;
             } else {
@@ -1055,7 +1055,7 @@ contract ve is IERC721, IERC721Metadata {
         uint256 target_epoch = _find_block_epoch(_block, _epoch);
 
         Point memory point = point_history[target_epoch];
-        uint256 dt = 0;
+        uint256 dt;
         if (target_epoch < _epoch) {
             Point memory point_next = point_history[target_epoch + 1];
             if (point.blk != point_next.blk) {

@@ -74,9 +74,9 @@ contract Reward {
     /// @return blockNumber
     function getBlockByTime(uint256 _time) public view returns (uint256) {
         // Binary search
-        uint256 _min = 0;
+        uint256 _min;
         uint256 _max = point_history.length - 1; // asserting length >= 2
-        for (uint256 i = 0; i < 128; ++i) {
+        for (uint256 i; i < 128; ) {
             // Will be always enough for 128-bit numbers
             if (_min >= _max) {
                 break;
@@ -86,6 +86,9 @@ contract Reward {
                 _min = _mid;
             } else {
                 _max = _mid - 1;
+            }
+            unchecked {
+                ++i;
             }
         }
 
@@ -178,7 +181,7 @@ contract Reward {
         uint256 accurateTR;
         uint256 _start = startTime;
         uint256 _end = _start + epochLength;
-        for (uint256 i = 0; i < epochCount; i++) {
+        for (uint256 i; i < epochCount; ++i) {
             (_epochId, accurateTR) = _addEpoch(_start, _end, _reward);
             _start = _end;
             _end = _start + epochLength;
@@ -278,14 +281,14 @@ contract Reward {
     {
         require(tokenIds.length == intervals.length, 'length not equal');
         rewards = new uint256[](tokenIds.length);
-        for (uint256 i = 0; i < tokenIds.length; i++) {
+        for (uint256 i; i < tokenIds.length; ++i) {
             rewards[i] = claimReward(tokenIds[i], intervals[i]);
         }
         return rewards;
     }
 
     function claimReward(uint256 tokenId, Interval[] calldata intervals) public returns (uint256 reward) {
-        for (uint256 i = 0; i < intervals.length; i++) {
+        for (uint256 i; i < intervals.length; ++i) {
             reward += claimReward(tokenId, intervals[i].startEpoch, intervals[i].endEpoch);
         }
         return reward;
@@ -301,7 +304,7 @@ contract Reward {
         require(endEpoch < epochInfo.length, 'claim out of range');
         EpochInfo memory epoch;
         uint256 lastPointTime = point_history[point_history.length - 1].ts;
-        for (uint256 i = startEpoch; i <= endEpoch; i++) {
+        for (uint256 i = startEpoch; i <= endEpoch; ++i) {
             epoch = epochInfo[i];
             if (block.timestamp < epoch.startTime) {
                 break;
@@ -337,9 +340,9 @@ contract Reward {
             return epochInfo.length - 1;
         }
         // Binary search
-        uint256 _min = 0;
+        uint256 _min;
         uint256 _max = epochInfo.length - 1; // asserting length >= 2
-        for (uint256 i = 0; i < 128; ++i) {
+        for (uint256 i; i < 128; ) {
             // Will be always enough for 128-bit numbers
             if (_min >= _max) {
                 break;
@@ -350,6 +353,7 @@ contract Reward {
             } else {
                 _max = _mid - 1;
             }
+            unchecked { ++i; }
         }
         return _min;
     }
@@ -482,7 +486,7 @@ contract Reward {
             end = current;
         }
         RewardInfo[] memory rewards = new RewardInfo[](end - start + 1);
-        for (uint256 i = start; i <= end; i++) {
+        for (uint256 i = start; i <= end; ++i) {
             if (block.timestamp < epochInfo[i].startTime) {
                 break;
             }
@@ -490,12 +494,14 @@ contract Reward {
             rewards[i - start] = RewardInfo(i, reward_i);
         }
 
+        uint256 rewardsLength = rewards.length;
+
         // omit zero rewards and convert epoch list to intervals
-        IntervalReward[] memory intervalRewards_0 = new IntervalReward[](rewards.length);
-        uint256 intv = 0;
-        uint256 intvCursor = 0;
-        uint256 sum = 0;
-        for (uint256 i = 0; i < rewards.length; i++) {
+        IntervalReward[] memory intervalRewards_0 = new IntervalReward[](rewardsLength);
+        uint256 intv;
+        uint256 intvCursor;
+        uint256 sum;
+        for (uint256 i; i < rewardsLength; ++i) {
             if (rewards[i].reward == 0) {
                 if (i != intvCursor) {
                     intervalRewards_0[intv] = IntervalReward(rewards[intvCursor].epochId, rewards[i - 1].epochId, sum);
@@ -515,13 +521,13 @@ contract Reward {
             );
             intervalRewards = new IntervalReward[](intv + 1);
             // Copy interval array
-            for (uint256 i = 0; i < intv + 1; i++) {
+            for (uint256 i; i < intv + 1; ++i) {
                 intervalRewards[i] = intervalRewards_0[i];
             }
         } else {
             intervalRewards = new IntervalReward[](intv);
             // Copy interval array
-            for (uint256 i = 0; i < intv; i++) {
+            for (uint256 i; i < intv; ++i) {
                 intervalRewards[i] = intervalRewards_0[i];
             }
         }
