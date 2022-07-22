@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT
 
-pragma solidity 0.8.11;
+pragma solidity ^0.8.11;
 
 /**
 @title Voting Escrow
@@ -69,13 +69,13 @@ contract ve is IERC721, IERC721Metadata {
     event Withdraw(address indexed provider, uint256 tokenId, uint256 value, uint256 ts);
     event Supply(uint256 prevSupply, uint256 supply);
 
-//    uint256 internal constant WEEK = 1 weeks;
-//    uint256 internal constant MAXTIME = 1 * 365 * 86400;
-//    int128 internal constant iMAXTIME = 1 * 365 * 86400;
+    uint256 internal constant WEEK = 1 weeks;
+    uint256 internal constant MAXTIME = 1 * 365 * 86400;
+    int128 internal constant iMAXTIME = 1 * 365 * 86400;
 
-    uint256 internal constant WEEK = 10 minutes;
-    uint256 internal constant MAXTIME = 600 minutes;
-    int128 internal constant iMAXTIME = 600 minutes;
+//    uint256 internal constant WEEK = 10 minutes;
+//    uint256 internal constant MAXTIME = 600 minutes;
+//    int128 internal constant iMAXTIME = 600 minutes;
     uint256 internal constant MULTIPLIER = 1 ether;
 
     address public immutable token;

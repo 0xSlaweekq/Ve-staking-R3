@@ -8,15 +8,16 @@ async function main() {
   const tokenFactory = await ethers.getContractFactory("TestERC20");
   const token1 = (await tokenFactory.deploy()) as TestERC20;
 
-  const token2 = (await tokenFactory.deploy()) as TestERC20;
-
   console.log("Token deployed to:", token1.address);
-  console.log("Token deployed to:", token2.address);
+
+  await new Promise((r) => setTimeout(r, 10000));
 
   const veNFTFactory = await ethers.getContractFactory("contracts/ve.sol:ve");
   const veNFT = (await veNFTFactory.deploy(token1.address)) as Ve;
 
   console.log("Ve deployed to:", veNFT.address);
+
+  await new Promise((r) => setTimeout(r, 10000));
 
   const RewardFactory = await ethers.getContractFactory("Reward");
   const reward1 = (await RewardFactory.deploy(
@@ -26,23 +27,11 @@ async function main() {
 
   console.log("Reward deployed to:", reward1.address);
 
-  const reward2 = (await RewardFactory.deploy(
-    veNFT.address,
-    token2.address
-  )) as Reward;
-
-  console.log("Reward deployed to:", reward2.address);
-
   // eslint-disable-next-line promise/param-names
   await new Promise((r) => setTimeout(r, 10000));
 
   await hre.run("verify:verify", {
     address: token1.address,
-    constructorArguments: [],
-  });
-
-  await hre.run("verify:verify", {
-    address: token2.address,
     constructorArguments: [],
   });
 
@@ -56,35 +45,20 @@ async function main() {
     constructorArguments: [veNFT.address, token1.address],
   });
 
-  await hre.run("verify:verify", {
-    address: reward2.address,
-    constructorArguments: [veNFT.address, token2.address],
-  });
 
   await token1.mint(reward1.address, Web3.utils.toWei("10000000", "ether")); // 100 mil
-  await token2.mint(reward2.address, Web3.utils.toWei("10000000", "ether")); // 100 mil
-
   await token1.approve(veNFT.address, Web3.utils.toWei("100000000", "ether"));
-  await token1.approve(reward2.address, Web3.utils.toWei("100000000", "ether"));
-  await token2.approve(reward2.address, Web3.utils.toWei("100000000", "ether"));
 
   const blockNum = await ethers.provider.getBlockNumber();
   const block = await ethers.provider.getBlock(blockNum);
   const timestamp = block.timestamp;
 
-  const week = 600; // 10 minutes
+  const week = 86400; // 1 epoch
   await reward1.addEpochBatch(
     timestamp,
     week,
-    2,
-    Web3.utils.toWei("10000", "ether")
-  );
-
-  await reward2.addEpochBatch(
-    timestamp + 600 * 2,
-    week,
-    2,
-    Web3.utils.toWei("10000", "ether")
+    4,
+    Web3.utils.toWei("100000", "ether")
   );
 }
 
