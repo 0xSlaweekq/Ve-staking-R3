@@ -31,9 +31,13 @@ import './interfaces/IERC721.sol';
 import './interfaces/IERC721Receiver.sol';
 import './interfaces/IERC721Metadata.sol';
 import './interfaces/IERC20.sol';
+import '@openzeppelin/contracts/utils/structs/EnumerableSet.sol';
 
 contract ve is IERC721, IERC721Metadata {
-    using SafeERC20 for IERC20; // only for sweep tokens
+    using SafeERC20 for IERC20;
+    using EnumerableSet for EnumerableSet.UintSet;
+
+    mapping(address => EnumerableSet.UintSet) internal ownerToTokens;
 
     enum DepositType {
         DEPOSIT_FOR_TYPE,
@@ -305,6 +309,8 @@ contract ve is IERC721, IERC721Metadata {
         _addTokenToOwnerList(_to, _tokenId);
         // Change count tracking
         ownerToNFTokenCount[_to] += 1;
+
+        ownerToTokens[_to].add(_tokenId);
     }
 
     /// @dev Remove a NFT from a given address
@@ -318,6 +324,8 @@ contract ve is IERC721, IERC721Metadata {
         _removeTokenFromOwnerList(_from, _tokenId);
         // Change count tracking
         ownerToNFTokenCount[_from] -= 1;
+
+        ownerToTokens[_from].remove(_tokenId);
     }
 
     /// @dev Clear an approval of a given address
@@ -837,7 +845,7 @@ contract ve is IERC721, IERC721Metadata {
         require(_locked.end > block.timestamp, 'Lock expired');
         require(_locked.amount > 0, 'Nothing is locked');
         require(unlock_time > _locked.end, 'Can only increase lock duration');
-        require(unlock_time <= block.timestamp + MAXTIME, 'Voting lock can be 4 years max');
+        require(unlock_time <= block.timestamp + MAXTIME, 'Voting lock can be 4 years max'); // TODO change error messages
 
         _deposit_for(_tokenId, 0, unlock_time, _locked, DepositType.INCREASE_UNLOCK_TIME);
     }
@@ -876,6 +884,10 @@ contract ve is IERC721, IERC721Metadata {
     // The following ERC20/minime-compatible methods are not real balanceOf and supply!
     // They measure the weights for the purpose of voting, so they don't represent
     // real coins.
+
+    function viewTokensByOwner(address _tokenOwner) external view returns (uint256[] memory tokenList) {
+        return ownerToTokens[_tokenOwner].values();
+    }
 
     /// @notice Binary search to estimate timestamp for block number
     /// @param _block Block to find
