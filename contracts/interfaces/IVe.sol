@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 
-pragma solidity ^0.8.0;
+pragma solidity ^0.8.8;
 
-interface ve {
+interface IVe {
     function balanceOfAtNFT(uint256 _tokenId, uint256 _block) external view returns (uint256);
 
     function balanceOfNFTAt(uint256 _tokenId, uint256 _t) external view returns (uint256);

@@ -5,7 +5,7 @@ pragma solidity ^0.8.11;
 import './libraries/SafeERC20.sol';
 import './libraries/Address.sol';
 import './interfaces/IERC20.sol';
-import './interfaces/ve.sol';
+import './interfaces/IVe.sol';
 
 contract Reward {
     using SafeERC20 for IERC20;
@@ -241,7 +241,7 @@ contract Reward {
             finished = true;
         }
 
-        uint256 power = ve(_ve).balanceOfAtNFT(tokenId, epoch.startBlock);
+        uint256 power = IVe(_ve).balanceOfAtNFT(tokenId, epoch.startBlock);
 
         uint256 reward = (epoch.rewardPerSecond * (end - last) * power) / (epoch.totalPower * RewardMultiplier);
         return (reward, finished);
@@ -260,7 +260,7 @@ contract Reward {
             epochInfo[epochId].startBlock = getBlockByTime(epochInfo[epochId].startTime);
         }
         if (epochInfo[epochId].totalPower == 1) {
-            epochInfo[epochId].totalPower = ve(_ve).totalSupplyAt(epochInfo[epochId].startBlock);
+            epochInfo[epochId].totalPower = IVe(_ve).totalSupplyAt(epochInfo[epochId].startBlock);
         }
     }
 
@@ -300,7 +300,7 @@ contract Reward {
         uint256 startEpoch,
         uint256 endEpoch
     ) public returns (uint256 reward) {
-        require(msg.sender == ve(_ve).ownerOf(tokenId));
+        require(msg.sender == IVe(_ve).ownerOf(tokenId));
         require(endEpoch < epochInfo.length, 'claim out of range');
         EpochInfo memory epoch;
         uint256 lastPointTime = point_history[point_history.length - 1].ts;
@@ -328,7 +328,7 @@ contract Reward {
                 break;
             }
         }
-        IERC20(rewardToken).safeTransfer(ve(_ve).ownerOf(tokenId), reward);
+        IERC20(rewardToken).safeTransfer(IVe(_ve).ownerOf(tokenId), reward);
         emit LogClaimReward(tokenId, reward);
         return reward;
     }
@@ -421,9 +421,9 @@ contract Reward {
         if (epochInfo[epochId].totalPower == 1) {
             uint256 blk = getEpochStartBlock(epochId);
             if (blk > block.number) {
-                return ve(_ve).totalSupplyAtT(epochInfo[epochId].startTime);
+                return IVe(_ve).totalSupplyAtT(epochInfo[epochId].startTime);
             }
-            return ve(_ve).totalSupplyAt(blk);
+            return IVe(_ve).totalSupplyAt(blk);
         }
         return epochInfo[epochId].totalPower;
     }
@@ -433,9 +433,9 @@ contract Reward {
         EpochInfo memory epoch = epochInfo[epochId];
         uint256 blk = getBlockByTimeWithoutLastCheckpoint(epoch.startTime);
         if (blk < block.number) {
-            return ve(_ve).balanceOfAtNFT(tokenId, blk);
+            return IVe(_ve).balanceOfAtNFT(tokenId, blk);
         }
-        return ve(_ve).balanceOfNFTAt(tokenId, epochInfo[epochId].startTime);
+        return IVe(_ve).balanceOfNFTAt(tokenId, epochInfo[epochId].startTime);
     }
 
     /// @notice
@@ -455,7 +455,7 @@ contract Reward {
         if (totalPower == 0) {
             return (0, true);
         }
-        uint256 power = ve(_ve).balanceOfAtNFT(tokenId, startBlock);
+        uint256 power = IVe(_ve).balanceOfAtNFT(tokenId, startBlock);
 
         uint256 last = userLastClaimTime[tokenId][epochId];
         last = last >= epoch.startTime ? last : epoch.startTime;
