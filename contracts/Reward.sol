@@ -41,11 +41,11 @@ contract Reward {
         _;
     }
 
-    event LogClaimReward(uint256 tokenId, uint256 reward);
-    event LogAddEpoch(uint256 epochId, EpochInfo epochInfo);
-    event LogAddEpoch(uint256 startTime, uint256 epochLength, uint256 epochCount, uint256 startEpochId);
-    event LogTransferAdmin(address pendingAdmin);
-    event LogAcceptAdmin(address admin);
+    event ClaimReward(uint256 tokenId, uint256 reward);
+    event AddEpoch(uint256 epochId, EpochInfo epochInfo);
+    event AddEpoch(uint256 startTime, uint256 epochLength, uint256 epochCount, uint256 startEpochId);
+    event TransferAdmin(address pendingAdmin);
+    event AcceptAdmin(address admin);
 
     constructor(address _ve_, address rewardToken_) {
         admin = msg.sender;
@@ -123,14 +123,14 @@ contract Reward {
 
     function transferAdmin(address _admin) external onlyAdmin {
         pendingAdmin = _admin;
-        emit LogTransferAdmin(pendingAdmin);
+        emit TransferAdmin(pendingAdmin);
     }
 
     function acceptAdmin() external {
         require(msg.sender == pendingAdmin);
         admin = pendingAdmin;
         pendingAdmin = address(0);
-        emit LogAcceptAdmin(admin);
+        emit AcceptAdmin(admin);
     }
 
     /// @notice add one epoch
@@ -150,7 +150,7 @@ contract Reward {
         if (lastPointTime < block.timestamp) {
             addCheckpoint();
         }
-        emit LogAddEpoch(epochId, epochInfo[epochId]);
+        emit AddEpoch(epochId, epochInfo[epochId]);
         return (epochId, accurateTotalReward);
     }
 
@@ -190,7 +190,7 @@ contract Reward {
         if (lastPointTime < block.timestamp) {
             addCheckpoint();
         }
-        emit LogAddEpoch(startTime, epochLength, epochCount, _epochId + 1 - epochCount);
+        emit AddEpoch(startTime, epochLength, epochCount, _epochId + 1 - epochCount);
         return (_epochId + 1 - epochCount, _epochId, accurateTR * epochCount);
     }
 
@@ -329,7 +329,7 @@ contract Reward {
             }
         }
         IERC20(rewardToken).safeTransfer(IVe(_ve).ownerOf(tokenId), reward);
-        emit LogClaimReward(tokenId, reward);
+        emit ClaimReward(tokenId, reward);
         return reward;
     }
 
