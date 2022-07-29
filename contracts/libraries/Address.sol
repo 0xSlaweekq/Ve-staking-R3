@@ -8,7 +8,7 @@ library Address {
 
         bytes32 accountHash = 0xc5d2460186f7233c927e7db2dcc703c0e500b653ca82273b7bfad8045d85a470;
         // solhint-disable-next-line no-inline-assembly
-        assembly {
+        assembly { // reference to https://github.com/ethereum/EIPs/blob/master/EIPS/eip-1052.md#specification
             codehash := extcodehash(account)
         }
         return (codehash != 0x0 && codehash != accountHash);
