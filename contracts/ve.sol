@@ -27,13 +27,16 @@ more than `MAXTIME` (4 years).
 
 import './libraries/Base64.sol';
 import './libraries/SafeERC20.sol';
+
 import './interfaces/IERC721.sol';
 import './interfaces/IERC721Receiver.sol';
 import './interfaces/IERC721Metadata.sol';
 import './interfaces/IERC20.sol';
+import './interfaces/IVe.sol';
+
 import '@openzeppelin/contracts/utils/structs/EnumerableSet.sol';
 
-contract ve is IERC721, IERC721Metadata {
+contract ve is IERC721, IERC721Metadata, IVe {
     using SafeERC20 for IERC20;
     using EnumerableSet for EnumerableSet.UintSet;
 
@@ -218,7 +221,7 @@ contract ve is IERC721, IERC721Metadata {
 
     /// @dev Returns the address of the owner of the NFT.
     /// @param _tokenId The identifier for an NFT.
-    function ownerOf(uint256 _tokenId) public view returns (address) {
+    function ownerOf(uint256 _tokenId) public override(IERC721, IVe) view returns (address) {
         address owner = idToOwner[_tokenId];
         require(owner != address(0), 'VE NFT: owner query for nonexistent token');
         return owner;
