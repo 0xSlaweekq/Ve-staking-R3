@@ -290,19 +290,28 @@ contract Reward {
     }
 
     function claimReward(uint256 tokenId, Interval[] calldata intervals) public returns (uint256 reward) {
+        require(msg.sender == IVe(_ve).ownerOf(tokenId));
         for (uint256 i; i < intervals.length; ++i) {
-            reward += claimReward(tokenId, intervals[i].startEpoch, intervals[i].endEpoch);
+            reward += _claimReward(tokenId, intervals[i].startEpoch, intervals[i].endEpoch);
         }
         return reward;
     }
 
-    /// @notice claim reward in range
     function claimReward(
         uint256 tokenId,
         uint256 startEpoch,
         uint256 endEpoch
-    ) public returns (uint256 reward) {
+    ) external returns (uint256 reward) {
         require(msg.sender == IVe(_ve).ownerOf(tokenId));
+        return _claimReward(tokenId, startEpoch, endEpoch);
+    }
+
+    /// @notice claim reward in range
+    function _claimReward(
+        uint256 tokenId,
+        uint256 startEpoch,
+        uint256 endEpoch
+    ) private returns (uint256 reward) {
         require(endEpoch < epochInfo.length, 'claim out of range');
         EpochInfo memory epoch;
         uint256 lastPointTime = point_history[point_history.length - 1].ts;

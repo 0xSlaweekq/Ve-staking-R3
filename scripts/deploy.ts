@@ -51,12 +51,12 @@ async function main() {
   // eslint-disable-next-line promise/param-names
   // await new Promise((r) => setTimeout(r, 10000));
 
-  const blockNum = await ethers.provider.getBlockNumber();
-  const block = await ethers.provider.getBlock(blockNum);
-  const timestamp = block.timestamp;
-
-  const week = 604800; // 1 epoch
-  await reward1.addEpoch(timestamp+60*15, timestamp+week+60*15, Web3.utils.toWei('1', 'ether'));
+  // const blockNum = await ethers.provider.getBlockNumber();
+  // const block = await ethers.provider.getBlock(blockNum);
+  // const timestamp = block.timestamp;
+  //
+  // const week = 604800; // 1 epoch
+  // await reward1.addEpoch(timestamp+60*15, timestamp+week+60*15, Web3.utils.toWei('1', 'ether'));
 
   // await reward1.addEpochBatch(
   //   timestamp,
