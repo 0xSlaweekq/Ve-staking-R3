@@ -155,7 +155,7 @@ contract ve is IERC721, IERC721Metadata, IVe {
     }
 
     /// @notice Contract constructor
-    /// @param token_addr `ERC20CRV` token address
+    /// @param token_addr `RBC` token address
     constructor(address token_addr) {
         token = token_addr;
         voter = msg.sender;

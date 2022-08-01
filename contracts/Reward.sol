@@ -48,6 +48,9 @@ contract Reward {
     event AcceptAdmin(address admin);
 
     constructor(address _ve_, address rewardToken_) {
+        require(_ve_ != address(0));
+        require(rewardToken_ != address(0));
+
         admin = msg.sender;
         _ve = _ve_;
         rewardToken = rewardToken_;
