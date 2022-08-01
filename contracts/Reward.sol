@@ -3,7 +3,6 @@
 pragma solidity ^0.8.11;
 
 import './libraries/SafeERC20.sol';
-import './libraries/Address.sol';
 import './interfaces/IERC20.sol';
 import './interfaces/IVe.sol';
 
@@ -250,7 +249,7 @@ contract Reward {
         return (reward, finished);
     }
 
-    function checkpointAndCheckEpoch(uint256 epochId) public {
+    function checkpointAndCheckEpoch(uint256 epochId) external {
         uint256 lastPointTime = point_history[point_history.length - 1].ts;
         if (lastPointTime < block.timestamp) {
             addCheckpoint();
@@ -279,7 +278,7 @@ contract Reward {
     }
 
     function claimRewardMany(uint256[] calldata tokenIds, Interval[][] calldata intervals)
-        public
+        external
         returns (uint256[] memory rewards)
     {
         require(tokenIds.length == intervals.length, 'length not equal');
@@ -376,7 +375,7 @@ contract Reward {
     /// @return endTime
     /// @return totalReward
     function getEpochInfo(uint256 epochId)
-        public
+        external
         view
         returns (
             uint256,
@@ -432,7 +431,7 @@ contract Reward {
     }
 
     /// @notice get user's power at epochId
-    function getUserPower(uint256 tokenId, uint256 epochId) public view returns (uint256) {
+    function getUserPower(uint256 tokenId, uint256 epochId) external view returns (uint256) {
         EpochInfo memory epoch = epochInfo[epochId];
         uint256 blk = getBlockByTimeWithoutLastCheckpoint(epoch.startTime);
         if (blk < block.number) {
