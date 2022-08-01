@@ -144,7 +144,7 @@ contract Reward {
         uint256 endTime,
         uint256 totalReward
     ) external onlyAdmin returns (uint256, uint256) {
-        assert(block.timestamp < endTime && startTime < endTime);
+        require(block.timestamp < endTime && startTime < endTime);
         if (epochInfo.length > 0) {
             require(epochInfo[epochInfo.length - 1].endTime <= startTime);
         }
@@ -338,7 +338,7 @@ contract Reward {
 
     /// @notice get epoch by time
     function getEpochIdByTime(uint256 _time) public view returns (uint256) {
-        assert(epochInfo[0].startTime <= _time);
+        require(epochInfo[0].startTime <= _time);
         if (_time > epochInfo[epochInfo.length - 1].startTime) {
             return epochInfo.length - 1;
         }
