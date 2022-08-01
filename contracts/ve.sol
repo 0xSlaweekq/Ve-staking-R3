@@ -77,8 +77,8 @@ contract ve is IERC721, IERC721Metadata, IVe {
     event Supply(uint256 prevSupply, uint256 supply);
 
     uint256 internal constant WEEK = 1 weeks;
-    uint256 internal constant MAXTIME = 1 * 365 * 86400;
-    int128 internal constant iMAXTIME = 1 * 365 * 86400;
+    uint256 internal constant MAXTIME = 365 days;
+    int128 internal constant iMAXTIME = 365 days;
     uint256 internal constant MULTIPLIER = 1 ether;
 
     address public immutable token;
@@ -247,10 +247,16 @@ contract ve is IERC721, IERC721Metadata, IVe {
     /// @return bool whether the msg.sender is approved for the given token ID, is an operator of the owner, or is the owner of the token
     function _isApprovedOrOwner(address _spender, uint256 _tokenId) internal view returns (bool) {
         address owner = idToOwner[_tokenId];
-        bool spenderIsOwner = owner == _spender;
-        bool spenderIsApproved = _spender == idToApprovals[_tokenId];
-        bool spenderIsApprovedForAll = (ownerToOperators[owner])[_spender];
-        return spenderIsOwner || spenderIsApproved || spenderIsApprovedForAll;
+        if (owner == _spender) {
+            return true;
+        }
+        if (_spender == idToApprovals[_tokenId]) {
+            return true;
+        }
+        if ((ownerToOperators[owner])[_spender]) {
+            return true;
+        }
+        return false;
     }
 
     function isApprovedOrOwner(address _spender, uint256 _tokenId) external view returns (bool) {
@@ -338,7 +344,7 @@ contract ve is IERC721, IERC721Metadata, IVe {
         }
     }
 
-    /// @dev Exeute transfer of a NFT.
+    /// @dev Execute transfer of a NFT.
     ///      Throws unless `msg.sender` is the current owner, an authorized operator, or the approved
     ///      address for this NFT. (NOTE: `msg.sender` not allowed in internal function so pass `_sender`.)
     ///      Throws if `_to` is the zero address.
@@ -712,29 +718,21 @@ contract ve is IERC721, IERC721Metadata, IVe {
         attachments[_tokenId] = attachments[_tokenId] - 1;
     }
 
-    function sweepTokens(address _token, uint256 _amount) external {
+    function sweepTokens(address _token, uint256 _amount, address _receiver) external {
         require(msg.sender == voter);
         require(_token != token); // can't withdraw users RBC
-        _sendToken(_token, _amount, msg.sender);
-    }
-
-    /// @notice allow users withdraw their locks even if locks are still active
-    function finishStaking() external {
-        require(msg.sender == voter);
-        finishedStaking = true;
-    }
-
-    function _sendToken(
-        address _token,
-        uint256 _amount,
-        address _receiver
-    ) private {
         if (_token == address(0)) {
             (bool sent, ) = _receiver.call{value: _amount}('');
             require(sent, 'failed to send native');
         } else {
             IERC20(_token).safeTransfer(_receiver, _amount);
         }
+    }
+
+    /// @notice allow users withdraw their locks even if locks are still active
+    function finishStaking() external {
+        require(msg.sender == voter);
+        finishedStaking = true;
     }
 
     function merge(uint256 _from, uint256 _to) external {
@@ -957,8 +955,6 @@ contract ve is IERC721, IERC721Metadata, IVe {
     /// @param _block Block to calculate the voting power at
     /// @return Voting power
     function _balanceOfAtNFT(uint256 _tokenId, uint256 _block) internal view returns (uint256) {
-        // Copying and pasting totalSupply code because Vyper cannot pass by
-        // reference yet
         assert(_block <= block.number);
 
         // Binary search
@@ -1105,7 +1101,7 @@ contract ve is IERC721, IERC721Metadata, IVe {
                     abi.encodePacked(
                         '{"name": "lock #',
                         toString(_tokenId),
-                        '", "description": "veMULTI NFT", "image": "data:image/svg+xml;base64,',
+                        '", "description": "veRBC NFT", "image": "data:image/svg+xml;base64,',
                         Base64.encode(bytes(output)),
                         '"}'
                     )
