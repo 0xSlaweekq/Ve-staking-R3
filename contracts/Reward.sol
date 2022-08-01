@@ -330,7 +330,7 @@ contract Reward {
                 break;
             }
         }
-        IERC20(rewardToken).safeTransfer(IVe(_ve).ownerOf(tokenId), reward);
+        IERC20(rewardToken).safeTransfer(msg.sender, reward);
         emit ClaimReward(tokenId, reward);
         return reward;
     }
@@ -367,8 +367,6 @@ contract Reward {
         uint256 epochId;
         uint256 reward;
     }
-
-    uint256 constant MaxQueryLength = 50; // not used?
 
     /// @notice get epoch info
     /// @return startTime

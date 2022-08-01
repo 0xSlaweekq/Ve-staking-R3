@@ -79,10 +79,6 @@ contract ve is IERC721, IERC721Metadata, IVe {
     uint256 internal constant WEEK = 1 weeks;
     uint256 internal constant MAXTIME = 1 * 365 * 86400;
     int128 internal constant iMAXTIME = 1 * 365 * 86400;
-
-//    uint256 internal constant WEEK = 3 minutes;
-//    uint256 internal constant MAXTIME = 600 minutes;
-//    int128 internal constant iMAXTIME = 600 minutes;
     uint256 internal constant MULTIPLIER = 1 ether;
 
     address public immutable token;
@@ -144,9 +140,9 @@ contract ve is IERC721, IERC721Metadata, IVe {
     bytes4 internal constant ERC721_METADATA_INTERFACE_ID = 0x5b5e139f;
 
     /// @dev reentrancy guard
-    uint8 internal constant _not_entered = 1;
-    uint8 internal constant _entered = 2;
-    uint8 internal _entered_state = 1;
+    uint256 internal constant _not_entered = 1;
+    uint256 internal constant _entered = 2;
+    uint256 internal _entered_state = 1;
     modifier nonreentrant() {
         require(_entered_state == _not_entered);
         _entered_state = _entered;
