@@ -146,6 +146,8 @@ contract Reward {
         require(block.timestamp < endTime && startTime < endTime);
         if (epochInfo.length > 0) {
             require(epochInfo[epochInfo.length - 1].endTime <= startTime);
+        } else {
+            require(startTime >= block.timestamp);
         }
         (uint256 epochId, uint256 accurateTotalReward) = _addEpoch(startTime, endTime, totalReward);
         uint256 lastPointTime = point_history[point_history.length - 1].ts;
@@ -177,6 +179,8 @@ contract Reward {
         require(block.timestamp < startTime + epochLength);
         if (epochInfo.length > 0) {
             require(epochInfo[epochInfo.length - 1].endTime <= startTime);
+        } else {
+            require(startTime >= block.timestamp);
         }
         uint256 _reward = totalReward / epochCount;
         uint256 _epochId;
