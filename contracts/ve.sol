@@ -737,8 +737,8 @@ contract ve is IERC721, IERC721Metadata, IVe {
     }
 
     function merge(uint256 _from, uint256 _to) external {
-        require(attachments[_tokenId] == 0, 'attached');
-        require(!voted[_tokenId], 'attached');
+        require(attachments[_from] == 0, 'attached');
+        require(!voted[_from], 'attached');
         require(_from != _to);
         require(_isApprovedOrOwner(msg.sender, _from));
         require(_isApprovedOrOwner(msg.sender, _to));
