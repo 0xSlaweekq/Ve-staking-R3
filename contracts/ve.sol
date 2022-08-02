@@ -62,7 +62,7 @@ contract ve is IERC721, IERC721Metadata, IVe {
 
     struct LockedBalance {
         int128 amount;
-        uint256 end;
+        uint128 end;
     }
 
     event Deposit(
@@ -675,7 +675,7 @@ contract ve is IERC721, IERC721Metadata, IVe {
         // Adding to existing lock, or if a lock is expired - creating a new one
         _locked.amount += int128(int256(_value));
         if (unlock_time != 0) {
-            _locked.end = unlock_time;
+            _locked.end = uint128(unlock_time);
         }
         locked[_tokenId] = _locked;
 
