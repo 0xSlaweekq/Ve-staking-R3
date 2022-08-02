@@ -9,7 +9,7 @@ pragma solidity ^0.8.11;
 @notice Votes have a weight depending on time, so that users are
 committed to the future of (whatever they are voting for)
 @dev Vote weight decays linearly over time. Lock time cannot be
-more than `MAXTIME` (4 years).
+more than `MAXTIME` (1 year).
 
 # Voting escrow to have time-weighted votes
 # Votes have a weight depending on time, so that users are committed
@@ -356,7 +356,8 @@ contract ve is IERC721, IERC721Metadata, IVe {
         uint256 _tokenId,
         address _sender
     ) internal {
-        require(attachments[_tokenId] == 0 && !voted[_tokenId], 'attached');
+        require(attachments[_tokenId] == 0, 'attached');
+        require(!voted[_tokenId], 'attached');
         // Check requirements
         require(_isApprovedOrOwner(_sender, _tokenId));
         // Clear approval. Throws if `_from` is not the current owner
@@ -736,7 +737,8 @@ contract ve is IERC721, IERC721Metadata, IVe {
     }
 
     function merge(uint256 _from, uint256 _to) external {
-        require(attachments[_from] == 0 && !voted[_from], 'attached');
+        require(attachments[_tokenId] == 0, 'attached');
+        require(!voted[_tokenId], 'attached');
         require(_from != _to);
         require(_isApprovedOrOwner(msg.sender, _from));
         require(_isApprovedOrOwner(msg.sender, _to));
@@ -771,7 +773,7 @@ contract ve is IERC721, IERC721Metadata, IVe {
 
         require(_value > 0); // dev: need non-zero value
         require(_locked.amount > 0, 'No existing lock found');
-        require(_locked.end > block.timestamp, 'Cannot add to expired lock. Withdraw');
+        require(_locked.end > block.timestamp, 'Expired lock. Withdraw');
         _deposit_for(_tokenId, _value, 0, _locked, DepositType.DEPOSIT_FOR_TYPE);
     }
 
@@ -787,7 +789,7 @@ contract ve is IERC721, IERC721Metadata, IVe {
         uint256 unlock_time = ((block.timestamp + _lock_duration) / WEEK) * WEEK; // Locktime is rounded down to weeks
 
         require(_value > 0); // dev: need non-zero value
-        require(unlock_time > block.timestamp, 'Can only lock until time in the future');
+        require(unlock_time > block.timestamp, 'Lock time must be in the future');
         require(unlock_time <= block.timestamp + MAXTIME, 'Voting lock can be 1 year max');
 
         ++tokenId;
@@ -826,7 +828,7 @@ contract ve is IERC721, IERC721Metadata, IVe {
 
         assert(_value > 0); // dev: need non-zero value
         require(_locked.amount > 0, 'No existing lock found');
-        require(_locked.end > block.timestamp, 'Cannot add to expired lock. Withdraw');
+        require(_locked.end > block.timestamp, 'Expired lock. Withdraw');
 
         _deposit_for(_tokenId, _value, 0, _locked, DepositType.INCREASE_LOCK_AMOUNT);
     }
@@ -851,7 +853,8 @@ contract ve is IERC721, IERC721Metadata, IVe {
     /// @dev Only possible if the lock has expired
     function withdraw(uint256 _tokenId) external nonreentrant {
         assert(_isApprovedOrOwner(msg.sender, _tokenId));
-        require(attachments[_tokenId] == 0 && !voted[_tokenId], 'attached');
+        require(attachments[_tokenId] == 0, 'attached');
+        require(!voted[_tokenId], 'attached');
 
         LockedBalance memory _locked = locked[_tokenId];
 
@@ -955,7 +958,7 @@ contract ve is IERC721, IERC721Metadata, IVe {
     /// @param _block Block to calculate the voting power at
     /// @return Voting power
     function _balanceOfAtNFT(uint256 _tokenId, uint256 _block) internal view returns (uint256) {
-        assert(_block <= block.number);
+        require(_block <= block.number);
 
         // Binary search
         uint256 _min;
@@ -1044,8 +1047,7 @@ contract ve is IERC721, IERC721Metadata, IVe {
     /// @dev Adheres to the ERC20 `totalSupply` interface for Aragon compatibility
     /// @return Total voting power
     function totalSupplyAtT(uint256 t) public view returns (uint256) {
-        uint256 _epoch = epoch;
-        Point memory last_point = point_history[_epoch];
+        Point memory last_point = point_history[epoch];
         return _supply_at(last_point, t);
     }
 
