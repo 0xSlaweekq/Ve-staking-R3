@@ -32,66 +32,65 @@ describe('Tests', () => {
     // 9 month - 23670000
     // 12 month -31560000
     describe('#Tests', () => {
-        describe('10 mil in pool', () => {
-            it('Should do smth', async () => {
-                const blockNum = await ethers.provider.getBlockNumber();
-                const block = await ethers.provider.getBlock(blockNum);
-                const timestamp = block.timestamp;
+        describe('Test staking cases', () => {
+            it('Should have rewards after witdhraw', async () => {
+                let blockNum = await ethers.provider.getBlockNumber();
+                let block = await ethers.provider.getBlock(blockNum);
+                let timestamp = block.timestamp / 604800;
+                const rewardStartTime = Number(timestamp.toFixed()) * 604800;
 
-                const week = 1800; // 30 mins
+                const week = 604800;
                 await reward.addEpochBatch(
-                    timestamp + 20,
+                    rewardStartTime,
                     week,
                     5,
-                    Web3.utils.toWei('1000', 'ether')
+                    Web3.utils.toWei('5000', 'ether')
                 );
 
-                await network.provider.send('evm_increaseTime', [Number(360)]);
-                await network.provider.send('evm_mine'); // 6 min
+                await network.provider.send('evm_increaseTime', [
+                    Number(rewardStartTime - block.timestamp)
+                ]);
+                await network.provider.send('evm_mine'); // staking starts
 
-                await veNFT.create_lock(Web3.utils.toWei('10', 'ether'), 3600);
+                await veNFT.create_lock(Web3.utils.toWei('10', 'ether'), 604800 * 2);
+                await veNFT.create_lock(Web3.utils.toWei('1000', 'ether'), 604800 * 2);
 
-                await network.provider.send('evm_increaseTime', [Number(240)]);
-                await network.provider.send('evm_mine'); // 10 min
+                await network.provider.send('evm_increaseTime', [Number(604800 * 3)]);
+                await network.provider.send('evm_mine');
 
-                await veNFT.create_lock(Web3.utils.toWei('1000', 'ether'), 3600);
-
-                await network.provider.send('evm_increaseTime', [Number(4080)]);
-                await network.provider.send('evm_mine'); // 1 h 18 min
-
-                let currEpoch = await reward.getCurrentEpochId();
-                let rewardA = await reward.pendingReward(1, 0, currEpoch);
-                console.log('1: Might be 15.87', rewardA);
-                let rewardB = await reward.pendingReward(2, 0, currEpoch);
-                console.log('2:', rewardB);
-
-                await reward['claimReward(uint256,uint256,uint256)'](1, 0, currEpoch);
-
-                await network.provider.send('evm_increaseTime', [Number(180)]);
-                await network.provider.send('evm_mine'); // 1 h 21 min
-
-                currEpoch = await reward.getCurrentEpochId();
-                rewardA = await reward.pendingReward(1, 0, currEpoch);
                 console.log('before burn');
-                console.log('1: ', rewardA);
-                rewardB = await reward.pendingReward(2, 0, currEpoch);
-                console.log('2:', rewardB);
+                console.log('2: ', await reward.pendingReward(2, 0, 3));
 
                 await veNFT.withdraw(1);
 
                 console.log('right after burn');
-                currEpoch = await reward.getCurrentEpochId();
-                rewardB = await reward.pendingReward(2, 0, currEpoch);
-                console.log('2:', rewardB);
-
-                await network.provider.send('evm_increaseTime', [Number(240)]);
-                await network.provider.send('evm_mine'); // 1 h 25 min
-
-                console.log('1 h 25 m');
-                currEpoch = await reward.getCurrentEpochId();
-                rewardB = await reward.pendingReward(2, 0, currEpoch);
-                console.log('2: might be zero ', rewardB);
+                console.log('2: ', await reward.pendingReward(2, 0, 3));
             });
+
+            // it('Should have rewards after witdhraw but with 3 tokens', async () => {
+            //     let blockNum = await ethers.provider.getBlockNumber();
+            //     let block = await ethers.provider.getBlock(blockNum);
+            //     let timestamp = block.timestamp;
+            //
+            //     const week = 604800;
+            //     await reward.addEpochBatch(
+            //         timestamp + 20,
+            //         week,
+            //         5,
+            //         Web3.utils.toWei('5000', 'ether')
+            //     );
+            //
+            //     await veNFT.create_lock(Web3.utils.toWei('10', 'ether'), 604800);
+            //     await veNFT.create_lock(Web3.utils.toWei('1000', 'ether'), 604800 * 2);
+            //     await veNFT.create_lock(Web3.utils.toWei('1000', 'ether'), 604800 * 2);
+            //
+            //     await network.provider.send('evm_increaseTime', [Number(604800)]);
+            //     await network.provider.send('evm_mine');
+            //
+            //     let amountBefore = await token.balanceOf(wallet.address);
+            //     await reward['claimReward(uint256,uint256,uint256)'](1, 0, 1);
+            //     console.log(Number(amountBefore) - Number(await token.balanceOf(wallet.address)));
+            // });
         });
     });
 });
