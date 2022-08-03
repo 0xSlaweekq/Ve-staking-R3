@@ -7,7 +7,7 @@ const hre = require("hardhat");
 async function main() {
   // const tokenFactory = await ethers.getContractFactory("TestERC20");
   const veNFTFactory = await ethers.getContractFactory("contracts/ve.sol:ve");
-  const veNFT = (await veNFTFactory.deploy('0x8E3BCC334657560253B83f08331d85267316e08a')) as Ve;
+  const veNFT = (await veNFTFactory.deploy('0xd452d01C6348D3d5B35FA1d5500d23F8Ae65D6eA')) as Ve;
 
   console.log("Ve deployed to:", veNFT.address);
 
@@ -16,7 +16,7 @@ async function main() {
   const RewardFactory = await ethers.getContractFactory("Reward");
   const reward1 = (await RewardFactory.deploy(
     veNFT.address,
-    '0x8E3BCC334657560253B83f08331d85267316e08a'
+    '0xd452d01C6348D3d5B35FA1d5500d23F8Ae65D6eA'
   )) as Reward;
 
   console.log("Reward deployed to:", reward1.address);
@@ -26,14 +26,14 @@ async function main() {
 
   await hre.run("verify:verify", {
     address: veNFT.address,
-    constructorArguments: ['0x8E3BCC334657560253B83f08331d85267316e08a'],
+    constructorArguments: ['0xd452d01C6348D3d5B35FA1d5500d23F8Ae65D6eA'],
   });
 
   await hre.run("verify:verify", {
     address: reward1.address,
     constructorArguments: [
         veNFT.address,
-        '0x8E3BCC334657560253B83f08331d85267316e08a'
+        '0xd452d01C6348D3d5B35FA1d5500d23F8Ae65D6eA'
   ],
   });
 

@@ -34,14 +34,63 @@ describe('Tests', () => {
     describe('#Tests', () => {
         describe('10 mil in pool', () => {
             it('Should do smth', async () => {
-                await veNFT.create_lock(Web3.utils.toWei('1000', 'ether'), 15780000);
-                await veNFT.create_lock(Web3.utils.toWei('1000', 'ether'), 31560000);
-                const rewardA = await reward.getPendingRewardSingle(1, 0);
-                console.log(rewardA);
-                const rewardB = await reward.getPendingRewardSingle(2, 0);
-                console.log(rewardB);
-                const rewardC = await reward.getPendingRewardSingle(3, 0);
-                console.log(rewardC);
+                const blockNum = await ethers.provider.getBlockNumber();
+                const block = await ethers.provider.getBlock(blockNum);
+                const timestamp = block.timestamp;
+
+                const week = 1800; // 30 mins
+                await reward.addEpochBatch(
+                    timestamp + 20,
+                    week,
+                    5,
+                    Web3.utils.toWei('1000', 'ether')
+                );
+
+                await network.provider.send('evm_increaseTime', [Number(360)]);
+                await network.provider.send('evm_mine'); // 6 min
+
+                await veNFT.create_lock(Web3.utils.toWei('10', 'ether'), 3600);
+
+                await network.provider.send('evm_increaseTime', [Number(240)]);
+                await network.provider.send('evm_mine'); // 10 min
+
+                await veNFT.create_lock(Web3.utils.toWei('1000', 'ether'), 3600);
+
+                await network.provider.send('evm_increaseTime', [Number(4080)]);
+                await network.provider.send('evm_mine'); // 1 h 18 min
+
+                let currEpoch = await reward.getCurrentEpochId();
+                let rewardA = await reward.pendingReward(1, 0, currEpoch);
+                console.log('1: Might be 15.87', rewardA);
+                let rewardB = await reward.pendingReward(2, 0, currEpoch);
+                console.log('2:', rewardB);
+
+                await reward['claimReward(uint256,uint256,uint256)'](1, 0, currEpoch);
+
+                await network.provider.send('evm_increaseTime', [Number(180)]);
+                await network.provider.send('evm_mine'); // 1 h 21 min
+
+                currEpoch = await reward.getCurrentEpochId();
+                rewardA = await reward.pendingReward(1, 0, currEpoch);
+                console.log('before burn');
+                console.log('1: ', rewardA);
+                rewardB = await reward.pendingReward(2, 0, currEpoch);
+                console.log('2:', rewardB);
+
+                await veNFT.withdraw(1);
+
+                console.log('right after burn');
+                currEpoch = await reward.getCurrentEpochId();
+                rewardB = await reward.pendingReward(2, 0, currEpoch);
+                console.log('2:', rewardB);
+
+                await network.provider.send('evm_increaseTime', [Number(240)]);
+                await network.provider.send('evm_mine'); // 1 h 25 min
+
+                console.log('1 h 25 m');
+                currEpoch = await reward.getCurrentEpochId();
+                rewardB = await reward.pendingReward(2, 0, currEpoch);
+                console.log('2: might be zero ', rewardB);
             });
         });
     });
