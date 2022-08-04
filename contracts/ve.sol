@@ -9,7 +9,7 @@ pragma solidity ^0.8.11;
 @notice Votes have a weight depending on time, so that users are
 committed to the future of (whatever they are voting for)
 @dev Vote weight decays linearly over time. Lock time cannot be
-more than `MAXTIME` (4 years).
+more than `MAXTIME` (1 year).
 
 # Voting escrow to have time-weighted votes
 # Votes have a weight depending on time, so that users are committed
@@ -22,18 +22,21 @@ more than `MAXTIME` (4 years).
 #   |  /
 #   |/
 # 0 +--------+------> time
-#       maxtime (4 years?)
+#       maxtime (1 years)
 */
 
 import './libraries/Base64.sol';
 import './libraries/SafeERC20.sol';
+
 import './interfaces/IERC721.sol';
 import './interfaces/IERC721Receiver.sol';
 import './interfaces/IERC721Metadata.sol';
 import './interfaces/IERC20.sol';
+import './interfaces/IVe.sol';
+
 import '@openzeppelin/contracts/utils/structs/EnumerableSet.sol';
 
-contract ve is IERC721, IERC721Metadata {
+contract ve is IERC721, IERC721Metadata, IVe {
     using SafeERC20 for IERC20;
     using EnumerableSet for EnumerableSet.UintSet;
 
@@ -59,7 +62,7 @@ contract ve is IERC721, IERC721Metadata {
 
     struct LockedBalance {
         int128 amount;
-        uint256 end;
+        uint128 end;
     }
 
     event Deposit(
@@ -74,12 +77,8 @@ contract ve is IERC721, IERC721Metadata {
     event Supply(uint256 prevSupply, uint256 supply);
 
     uint256 internal constant WEEK = 1 weeks;
-    uint256 internal constant MAXTIME = 1 * 365 * 86400;
-    int128 internal constant iMAXTIME = 1 * 365 * 86400;
-
-//    uint256 internal constant WEEK = 3 minutes;
-//    uint256 internal constant MAXTIME = 600 minutes;
-//    int128 internal constant iMAXTIME = 600 minutes;
+    uint256 internal constant MAXTIME = 365 days;
+    int128 internal constant iMAXTIME = 365 days;
     uint256 internal constant MULTIPLIER = 1 ether;
 
     address public immutable token;
@@ -141,9 +140,9 @@ contract ve is IERC721, IERC721Metadata {
     bytes4 internal constant ERC721_METADATA_INTERFACE_ID = 0x5b5e139f;
 
     /// @dev reentrancy guard
-    uint8 internal constant _not_entered = 1;
-    uint8 internal constant _entered = 2;
-    uint8 internal _entered_state = 1;
+    uint256 internal constant _not_entered = 1;
+    uint256 internal constant _entered = 2;
+    uint256 internal _entered_state = 1;
     modifier nonreentrant() {
         require(_entered_state == _not_entered);
         _entered_state = _entered;
@@ -152,7 +151,7 @@ contract ve is IERC721, IERC721Metadata {
     }
 
     /// @notice Contract constructor
-    /// @param token_addr `ERC20CRV` token address
+    /// @param token_addr `RBC` token address
     constructor(address token_addr) {
         token = token_addr;
         voter = msg.sender;
@@ -218,7 +217,7 @@ contract ve is IERC721, IERC721Metadata {
 
     /// @dev Returns the address of the owner of the NFT.
     /// @param _tokenId The identifier for an NFT.
-    function ownerOf(uint256 _tokenId) public view returns (address) {
+    function ownerOf(uint256 _tokenId) public override(IERC721, IVe) view returns (address) {
         address owner = idToOwner[_tokenId];
         require(owner != address(0), 'VE NFT: owner query for nonexistent token');
         return owner;
@@ -248,10 +247,16 @@ contract ve is IERC721, IERC721Metadata {
     /// @return bool whether the msg.sender is approved for the given token ID, is an operator of the owner, or is the owner of the token
     function _isApprovedOrOwner(address _spender, uint256 _tokenId) internal view returns (bool) {
         address owner = idToOwner[_tokenId];
-        bool spenderIsOwner = owner == _spender;
-        bool spenderIsApproved = _spender == idToApprovals[_tokenId];
-        bool spenderIsApprovedForAll = (ownerToOperators[owner])[_spender];
-        return spenderIsOwner || spenderIsApproved || spenderIsApprovedForAll;
+        if (owner == _spender) {
+            return true;
+        }
+        if (_spender == idToApprovals[_tokenId]) {
+            return true;
+        }
+        if ((ownerToOperators[owner])[_spender]) {
+            return true;
+        }
+        return false;
     }
 
     function isApprovedOrOwner(address _spender, uint256 _tokenId) external view returns (bool) {
@@ -339,7 +344,7 @@ contract ve is IERC721, IERC721Metadata {
         }
     }
 
-    /// @dev Exeute transfer of a NFT.
+    /// @dev Execute transfer of a NFT.
     ///      Throws unless `msg.sender` is the current owner, an authorized operator, or the approved
     ///      address for this NFT. (NOTE: `msg.sender` not allowed in internal function so pass `_sender`.)
     ///      Throws if `_to` is the zero address.
@@ -351,7 +356,8 @@ contract ve is IERC721, IERC721Metadata {
         uint256 _tokenId,
         address _sender
     ) internal {
-        require(attachments[_tokenId] == 0 && !voted[_tokenId], 'attached');
+        require(attachments[_tokenId] == 0, 'attached');
+        require(!voted[_tokenId], 'attached');
         // Check requirements
         require(_isApprovedOrOwner(_sender, _tokenId));
         // Clear approval. Throws if `_from` is not the current owner
@@ -669,7 +675,7 @@ contract ve is IERC721, IERC721Metadata {
         // Adding to existing lock, or if a lock is expired - creating a new one
         _locked.amount += int128(int256(_value));
         if (unlock_time != 0) {
-            _locked.end = unlock_time;
+            _locked.end = uint128(unlock_time);
         }
         locked[_tokenId] = _locked;
 
@@ -713,23 +719,9 @@ contract ve is IERC721, IERC721Metadata {
         attachments[_tokenId] = attachments[_tokenId] - 1;
     }
 
-    function sweepTokens(address _token, uint256 _amount) external {
+    function sweepTokens(address _token, uint256 _amount, address _receiver) external {
         require(msg.sender == voter);
         require(_token != token); // can't withdraw users RBC
-        _sendToken(_token, _amount, msg.sender);
-    }
-
-    /// @notice allow users withdraw their locks even if locks are still active
-    function finishStaking() external {
-        require(msg.sender == voter);
-        finishedStaking = true;
-    }
-
-    function _sendToken(
-        address _token,
-        uint256 _amount,
-        address _receiver
-    ) private {
         if (_token == address(0)) {
             (bool sent, ) = _receiver.call{value: _amount}('');
             require(sent, 'failed to send native');
@@ -738,8 +730,15 @@ contract ve is IERC721, IERC721Metadata {
         }
     }
 
+    /// @notice allow users withdraw their locks even if locks are still active
+    function finishStaking() external {
+        require(msg.sender == voter);
+        finishedStaking = true;
+    }
+
     function merge(uint256 _from, uint256 _to) external {
-        require(attachments[_from] == 0 && !voted[_from], 'attached');
+        require(attachments[_from] == 0, 'attached');
+        require(!voted[_from], 'attached');
         require(_from != _to);
         require(_isApprovedOrOwner(msg.sender, _from));
         require(_isApprovedOrOwner(msg.sender, _to));
@@ -774,7 +773,7 @@ contract ve is IERC721, IERC721Metadata {
 
         require(_value > 0); // dev: need non-zero value
         require(_locked.amount > 0, 'No existing lock found');
-        require(_locked.end > block.timestamp, 'Cannot add to expired lock. Withdraw');
+        require(_locked.end > block.timestamp, 'Expired lock. Withdraw');
         _deposit_for(_tokenId, _value, 0, _locked, DepositType.DEPOSIT_FOR_TYPE);
     }
 
@@ -790,8 +789,8 @@ contract ve is IERC721, IERC721Metadata {
         uint256 unlock_time = ((block.timestamp + _lock_duration) / WEEK) * WEEK; // Locktime is rounded down to weeks
 
         require(_value > 0); // dev: need non-zero value
-        require(unlock_time > block.timestamp, 'Can only lock until time in the future');
-        require(unlock_time <= block.timestamp + MAXTIME, 'Voting lock can be 4 years max');
+        require(unlock_time > block.timestamp, 'Lock time must be in the future');
+        require(unlock_time <= block.timestamp + MAXTIME, 'Voting lock can be 1 year max');
 
         ++tokenId;
         uint256 _tokenId = tokenId;
@@ -829,7 +828,7 @@ contract ve is IERC721, IERC721Metadata {
 
         assert(_value > 0); // dev: need non-zero value
         require(_locked.amount > 0, 'No existing lock found');
-        require(_locked.end > block.timestamp, 'Cannot add to expired lock. Withdraw');
+        require(_locked.end > block.timestamp, 'Expired lock. Withdraw');
 
         _deposit_for(_tokenId, _value, 0, _locked, DepositType.INCREASE_LOCK_AMOUNT);
     }
@@ -845,7 +844,7 @@ contract ve is IERC721, IERC721Metadata {
         require(_locked.end > block.timestamp, 'Lock expired');
         require(_locked.amount > 0, 'Nothing is locked');
         require(unlock_time > _locked.end, 'Can only increase lock duration');
-        require(unlock_time <= block.timestamp + MAXTIME, 'Voting lock can be 4 years max'); // TODO change error messages
+        require(unlock_time <= block.timestamp + MAXTIME, 'Voting lock can be 1 year max');
 
         _deposit_for(_tokenId, 0, unlock_time, _locked, DepositType.INCREASE_UNLOCK_TIME);
     }
@@ -854,7 +853,8 @@ contract ve is IERC721, IERC721Metadata {
     /// @dev Only possible if the lock has expired
     function withdraw(uint256 _tokenId) external nonreentrant {
         assert(_isApprovedOrOwner(msg.sender, _tokenId));
-        require(attachments[_tokenId] == 0 && !voted[_tokenId], 'attached');
+        require(attachments[_tokenId] == 0, 'attached');
+        require(!voted[_tokenId], 'attached');
 
         LockedBalance memory _locked = locked[_tokenId];
 
@@ -958,9 +958,7 @@ contract ve is IERC721, IERC721Metadata {
     /// @param _block Block to calculate the voting power at
     /// @return Voting power
     function _balanceOfAtNFT(uint256 _tokenId, uint256 _block) internal view returns (uint256) {
-        // Copying and pasting totalSupply code because Vyper cannot pass by
-        // reference yet
-        assert(_block <= block.number);
+        require(_block <= block.number);
 
         // Binary search
         uint256 _min;
@@ -1049,8 +1047,7 @@ contract ve is IERC721, IERC721Metadata {
     /// @dev Adheres to the ERC20 `totalSupply` interface for Aragon compatibility
     /// @return Total voting power
     function totalSupplyAtT(uint256 t) public view returns (uint256) {
-        uint256 _epoch = epoch;
-        Point memory last_point = point_history[_epoch];
+        Point memory last_point = point_history[epoch];
         return _supply_at(last_point, t);
     }
 
@@ -1106,7 +1103,7 @@ contract ve is IERC721, IERC721Metadata {
                     abi.encodePacked(
                         '{"name": "lock #',
                         toString(_tokenId),
-                        '", "description": "veMULTI NFT", "image": "data:image/svg+xml;base64,',
+                        '", "description": "veRBC NFT", "image": "data:image/svg+xml;base64,',
                         Base64.encode(bytes(output)),
                         '"}'
                     )

@@ -3,7 +3,6 @@
 pragma solidity ^0.8.11;
 
 import './libraries/SafeERC20.sol';
-import './libraries/Address.sol';
 import './interfaces/IERC20.sol';
 import './interfaces/IVe.sol';
 
@@ -41,13 +40,16 @@ contract Reward {
         _;
     }
 
-    event LogClaimReward(uint256 tokenId, uint256 reward);
-    event LogAddEpoch(uint256 epochId, EpochInfo epochInfo);
-    event LogAddEpoch(uint256 startTime, uint256 epochLength, uint256 epochCount, uint256 startEpochId);
-    event LogTransferAdmin(address pendingAdmin);
-    event LogAcceptAdmin(address admin);
+    event ClaimReward(uint256 tokenId, uint256 reward);
+    event AddEpoch(uint256 epochId, EpochInfo epochInfo);
+    event AddEpoch(uint256 startTime, uint256 epochLength, uint256 epochCount, uint256 startEpochId);
+    event TransferAdmin(address pendingAdmin);
+    event AcceptAdmin(address admin);
 
     constructor(address _ve_, address rewardToken_) {
+        require(_ve_ != address(0));
+        require(rewardToken_ != address(0));
+
         admin = msg.sender;
         _ve = _ve_;
         rewardToken = rewardToken_;
@@ -123,14 +125,14 @@ contract Reward {
 
     function transferAdmin(address _admin) external onlyAdmin {
         pendingAdmin = _admin;
-        emit LogTransferAdmin(pendingAdmin);
+        emit TransferAdmin(pendingAdmin);
     }
 
     function acceptAdmin() external {
         require(msg.sender == pendingAdmin);
         admin = pendingAdmin;
         pendingAdmin = address(0);
-        emit LogAcceptAdmin(admin);
+        emit AcceptAdmin(admin);
     }
 
     /// @notice add one epoch
@@ -141,16 +143,18 @@ contract Reward {
         uint256 endTime,
         uint256 totalReward
     ) external onlyAdmin returns (uint256, uint256) {
-        assert(block.timestamp < endTime && startTime < endTime);
+        require(block.timestamp < endTime && startTime < endTime);
         if (epochInfo.length > 0) {
             require(epochInfo[epochInfo.length - 1].endTime <= startTime);
+        } else {
+            require(startTime >= block.timestamp);
         }
         (uint256 epochId, uint256 accurateTotalReward) = _addEpoch(startTime, endTime, totalReward);
         uint256 lastPointTime = point_history[point_history.length - 1].ts;
         if (lastPointTime < block.timestamp) {
             addCheckpoint();
         }
-        emit LogAddEpoch(epochId, epochInfo[epochId]);
+        emit AddEpoch(epochId, epochInfo[epochId]);
         return (epochId, accurateTotalReward);
     }
 
@@ -175,6 +179,8 @@ contract Reward {
         require(block.timestamp < startTime + epochLength);
         if (epochInfo.length > 0) {
             require(epochInfo[epochInfo.length - 1].endTime <= startTime);
+        } else {
+            require(startTime >= block.timestamp);
         }
         uint256 _reward = totalReward / epochCount;
         uint256 _epochId;
@@ -190,7 +196,7 @@ contract Reward {
         if (lastPointTime < block.timestamp) {
             addCheckpoint();
         }
-        emit LogAddEpoch(startTime, epochLength, epochCount, _epochId + 1 - epochCount);
+        emit AddEpoch(startTime, epochLength, epochCount, _epochId + 1 - epochCount);
         return (_epochId + 1 - epochCount, _epochId, accurateTR * epochCount);
     }
 
@@ -247,7 +253,7 @@ contract Reward {
         return (reward, finished);
     }
 
-    function checkpointAndCheckEpoch(uint256 epochId) public {
+    function checkpointAndCheckEpoch(uint256 epochId) external {
         uint256 lastPointTime = point_history[point_history.length - 1].ts;
         if (lastPointTime < block.timestamp) {
             addCheckpoint();
@@ -276,7 +282,7 @@ contract Reward {
     }
 
     function claimRewardMany(uint256[] calldata tokenIds, Interval[][] calldata intervals)
-        public
+        external
         returns (uint256[] memory rewards)
     {
         require(tokenIds.length == intervals.length, 'length not equal');
@@ -288,19 +294,28 @@ contract Reward {
     }
 
     function claimReward(uint256 tokenId, Interval[] calldata intervals) public returns (uint256 reward) {
+        require(msg.sender == IVe(_ve).ownerOf(tokenId));
         for (uint256 i; i < intervals.length; ++i) {
-            reward += claimReward(tokenId, intervals[i].startEpoch, intervals[i].endEpoch);
+            reward += _claimReward(tokenId, intervals[i].startEpoch, intervals[i].endEpoch);
         }
         return reward;
     }
 
-    /// @notice claim reward in range
     function claimReward(
         uint256 tokenId,
         uint256 startEpoch,
         uint256 endEpoch
-    ) public returns (uint256 reward) {
+    ) external returns (uint256 reward) {
         require(msg.sender == IVe(_ve).ownerOf(tokenId));
+        return _claimReward(tokenId, startEpoch, endEpoch);
+    }
+
+    /// @notice claim reward in range
+    function _claimReward(
+        uint256 tokenId,
+        uint256 startEpoch,
+        uint256 endEpoch
+    ) private returns (uint256 reward) {
         require(endEpoch < epochInfo.length, 'claim out of range');
         EpochInfo memory epoch;
         uint256 lastPointTime = point_history[point_history.length - 1].ts;
@@ -328,14 +343,14 @@ contract Reward {
                 break;
             }
         }
-        IERC20(rewardToken).safeTransfer(IVe(_ve).ownerOf(tokenId), reward);
-        emit LogClaimReward(tokenId, reward);
+        IERC20(rewardToken).safeTransfer(msg.sender, reward);
+        emit ClaimReward(tokenId, reward);
         return reward;
     }
 
     /// @notice get epoch by time
     function getEpochIdByTime(uint256 _time) public view returns (uint256) {
-        assert(epochInfo[0].startTime <= _time);
+        require(epochInfo[0].startTime <= _time);
         if (_time > epochInfo[epochInfo.length - 1].startTime) {
             return epochInfo.length - 1;
         }
@@ -366,14 +381,12 @@ contract Reward {
         uint256 reward;
     }
 
-    uint256 constant MaxQueryLength = 50; // not used?
-
     /// @notice get epoch info
     /// @return startTime
     /// @return endTime
     /// @return totalReward
     function getEpochInfo(uint256 epochId)
-        public
+        external
         view
         returns (
             uint256,
@@ -429,7 +442,7 @@ contract Reward {
     }
 
     /// @notice get user's power at epochId
-    function getUserPower(uint256 tokenId, uint256 epochId) public view returns (uint256) {
+    function getUserPower(uint256 tokenId, uint256 epochId) external view returns (uint256) {
         EpochInfo memory epoch = epochInfo[epochId];
         uint256 blk = getBlockByTimeWithoutLastCheckpoint(epoch.startTime);
         if (blk < block.number) {

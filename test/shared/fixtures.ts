@@ -24,22 +24,20 @@ export const deployContractFixture: Fixture<DeployContractFixture> = async funct
     await token.approve(veNFT.address, Web3.utils.toWei('100000000', 'ether'));
     await token.mint(wallets[0].address, Web3.utils.toWei('100000000', 'ether'));
 
-    await veNFT.create_lock(Web3.utils.toWei('1000', 'ether'), 15780000);
-
     const RewardFactory = await ethers.getContractFactory('Reward');
     const reward = (await RewardFactory.deploy(veNFT.address, token.address)) as Reward;
 
     await token.mint(reward.address, Web3.utils.toWei('100000000', 'ether')); // 100 mil
     await token.approve(reward.address, Web3.utils.toWei('100000000', 'ether'));
 
-    const blockNum = await ethers.provider.getBlockNumber();
-    const block = await ethers.provider.getBlock(blockNum);
-    const timestamp = block.timestamp;
+    // const blockNum = await ethers.provider.getBlockNumber();
+    // const block = await ethers.provider.getBlock(blockNum);
+    // const timestamp = block.timestamp;
 
-    const week = 604800;
+    // const week = 604800;
     // await reward.addEpochBatch(timestamp, week, 4, Web3.utils.toWei('100000', 'ether'));
-    await reward.addEpoch(timestamp, timestamp+week, Web3.utils.toWei('100000', 'ether'));
-    await reward.addEpoch(timestamp+week, timestamp+week*2, Web3.utils.toWei('100000', 'ether'));
+    // await reward.addEpoch(timestamp, timestamp+week, Web3.utils.toWei('100000', 'ether'));
+    // await reward.addEpoch(timestamp+week, timestamp+week*2, Web3.utils.toWei('100000', 'ether'));
 
     return {
         veNFT,
